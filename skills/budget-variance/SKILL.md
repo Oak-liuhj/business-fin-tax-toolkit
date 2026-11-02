@@ -1,10 +1,10 @@
----
-slug: enterprise-fin-tax-budget-variance
+﻿---
+slug: business-fin-tax-budget-variance
 displayName: 预算与实际差异分析
 version: 0.1.0
 summary: 量价结构三因素分解，定位预算偏差根因并输出改进动作与滚动预测。
-license: MIT
-name: enterprise-fin-tax-budget-variance
+license: Apache-2.0
+name: business-fin-tax-budget-variance
 description: 预算执行差异分析。对收入与成本做量、价、结构三因素分解，区分有利/不利差异，定位到产品、客户、部门、科目，输出根因判断、改进动作与滚动预测。触发词：预算分析、差异分析、预算执行、量价分析、成本差异、预算偏差、滚动预测、差异分解。
 ---
 

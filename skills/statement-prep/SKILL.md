@@ -1,10 +1,10 @@
----
-slug: enterprise-fin-tax-statement-prep
+﻿---
+slug: business-fin-tax-statement-prep
 displayName: 财务报表编制
 version: 0.1.0
 summary: 上传科目余额表，按 CAS 编制资产负债表、利润表、现金流量表并验证勾稽关系。
-license: MIT
-name: enterprise-fin-tax-statement-prep
+license: Apache-2.0
+name: business-fin-tax-statement-prep
 description: 按企业会计准则（CAS）由科目余额表编制三张报表。输出资产负债表、利润表、现金流量表（间接法），完成九项勾稽验证、期间对比、合并报表要点与附注框架。触发词：财务报表编制、编三表、报表怎么编、科目余额表转报表、合并报表、附注。
 ---
 

@@ -1,10 +1,10 @@
----
-slug: enterprise-fin-tax-fin-analysis
+﻿---
+slug: business-fin-tax-fin-analysis
 displayName: 财务分析诊断
 version: 0.1.0
 summary: 上传报表输出杜邦分析、偿债、运营、盈利、现金流、Z-Score、EVA 全面诊断。
-license: MIT
-name: enterprise-fin-tax-fin-analysis
+license: Apache-2.0
+name: business-fin-tax-fin-analysis
 description: 财务报表全面诊断。输入资产负债表、利润表、现金流量表（或科目余额表），输出杜邦分析、偿债能力、运营效率、盈利能力、现金流质量、Altman Z-Score 财务预警、EVA 价值创造分析，并给出问题定位与改进建议。触发词：财务分析、财务诊断、看看这几张表、杜邦分析、Z-Score、EVA、偿债能力、周转率。
 ---
 

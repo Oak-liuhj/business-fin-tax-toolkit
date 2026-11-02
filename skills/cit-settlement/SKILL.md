@@ -1,10 +1,10 @@
----
-slug: enterprise-fin-tax-cit-settlement
+﻿---
+slug: business-fin-tax-cit-settlement
 displayName: 企业所得税汇算清缴
 version: 0.1.0
 summary: 从会计利润到应纳税所得额，逐项纳税调整、限额校验、亏损弥补与优惠适用。
-license: MIT
-name: enterprise-fin-tax-cit-settlement
+license: Apache-2.0
+name: business-fin-tax-cit-settlement
 description: 企业所得税汇算清缴测算。输出会计利润调节表、逐项纳税调整明细（招待费、广告费、福利费、捐赠、研发加计、资产损失、股权激励）、扣除限额校验、亏损弥补、优惠事项与风险分级。触发词：汇算清缴、企业所得税、纳税调整、税前扣除、研发加计、亏损弥补、资产损失、股权激励税务。
 ---
 

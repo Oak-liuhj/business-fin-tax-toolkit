@@ -1,10 +1,10 @@
----
-slug: enterprise-fin-tax-bookkeeping-voucher
+﻿---
+slug: business-fin-tax-bookkeeping-voucher
 displayName: 记账凭证编制
 version: 0.1.0
 summary: 按业务单据生成规范会计分录，覆盖采购、费用、薪酬、收入、税费、外币、研发、制造业成本与年末结转。
-license: MIT
-name: enterprise-fin-tax-bookkeeping-voucher
+license: Apache-2.0
+name: business-fin-tax-bookkeeping-voucher
 description: 根据业务描述或单据（发票、合同、回单、工资表）生成标准记账凭证与摘要、附件清单，覆盖采购付款、费用报销、职工薪酬、收入确认、税费计提、外币业务、研发支出、制造业成本、年末结转等场景。触发词：做凭证、记账、这个业务怎么分录、会计分录、凭证模板、外币分录、研发资本化分录、成本结转。
 ---
 

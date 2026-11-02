@@ -1,10 +1,10 @@
----
-slug: enterprise-fin-tax-month-end-close
+﻿---
+slug: business-fin-tax-month-end-close
 displayName: 月结管理
 version: 0.1.0
 summary: 十步关账清单、关键计提与结转、制造业成本核算、关账检查表与时间表。
-license: MIT
-name: enterprise-fin-tax-month-end-close
+license: Apache-2.0
+name: business-fin-tax-month-end-close
 description: 月度关账全流程。输出关账日历与责任分工、十步关账清单（截止、计提、摊销、成本核算、税费、结转、试算平衡、报表、复核、归档）、制造业成本核算方法、关账检查表与常见遗漏项。触发词：月结、关账、月末结账、计提、成本核算、制造业成本、关账清单、结账流程。
 ---
 

@@ -1,4 +1,4 @@
-# enterprise-fin-tax · 自测记录
+# business-fin-tax · 自测记录
 
 > 建立时间：2026-11-02。本文件记录每次自测的时间、环境、结果与遗留问题，作为交付证据。
 
@@ -9,13 +9,13 @@
 
 恢复方式（任一）：
 1. 重启机器或修复 pwsh；
-2. 在 WSL / Linux 下运行 `python3 enterprise-fin-tax/scripts/<脚本>.py -i <样例>`；
+2. 在 WSL / Linux 下运行 `python3 business-fin-tax/scripts/<脚本>.py -i <样例>`；
 3. 在任意装有 Python 3.8+ 的环境执行下述命令。
 
 ## 待执行命令清单
 
 ```bash
-cd enterprise-fin-tax/scripts
+cd business-fin-tax/scripts
 python3 fin_ratios.py        -i ../assets/samples/fin_data_sample.json      --md
 python3 zscore_eva.py        -i ../assets/samples/zscore_eva_sample.json    --md
 python3 variance_decompose.py -i ../assets/samples/variance_input_sample.json --md

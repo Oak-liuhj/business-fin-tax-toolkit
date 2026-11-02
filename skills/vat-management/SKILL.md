@@ -1,10 +1,10 @@
----
-slug: enterprise-fin-tax-vat-management
+﻿---
+slug: business-fin-tax-vat-management
 displayName: 增值税管理
 version: 0.1.0
 summary: 销项进项匹配、税负测算、出口退税（免抵退）与加计抵减计算及风险预警。
-license: MIT
-name: enterprise-fin-tax-vat-management
+license: Apache-2.0
+name: business-fin-tax-vat-management
 description: 增值税全流程管理。输出销项与进项明细核对、税负率测算与趋势、进销项匹配异常筛查、出口退税免抵退计算、加计抵减测算、申报底稿与风险清单。触发词：增值税、销项进项、税负率、留抵、出口退税、免抵退、加计抵减、进项转出、增值税申报。
 ---
 

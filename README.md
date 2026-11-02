@@ -1,4 +1,4 @@
-# 企业财税专家包 · enterprise-fin-tax
+# 企业财税专家包 · business-fin-tax
 
 面向企业财务与税务日常工作的技能包，覆盖八大场景，适配会计、财务经理、税务经理、审计经理四类角色。
 
@@ -30,12 +30,47 @@
 
 样例数据在 `assets/samples/`，输出模板在 `assets/templates/`，自测记录见 `SELFTEST.md`。
 
+## 目录结构
+
+```
+business-fin-tax-toolkit/
+├── SKILL.md                     # 主入口：角色路由、命令别名表、五步流程、三条红线
+├── README.md
+├── SELFTEST.md                  # 自测记录与待执行命令
+├── LICENSE                      # Apache-2.0
+├── references/                  # 知识底座（6 份）
+│   ├── cas-basics.md            # CAS 准则口径
+│   ├── entry-templates.md       # 标准分录模板库（凭证参考）
+│   ├── statement-mapping.md     # 科目 → 报表行映射
+│   ├── vat-rules.md             # 增值税规则与风险指标
+│   ├── cit-limits.md            # 企税扣除限额与优惠
+│   └── audit-programs-sox.md    # 六大循环审计程序 + SOX 404
+├── skills/                      # 子技能（8 个，统一四段式）
+│   ├── fin-analysis/SKILL.md
+│   ├── bookkeeping-voucher/SKILL.md
+│   ├── budget-variance/SKILL.md
+│   ├── vat-management/SKILL.md
+│   ├── cit-settlement/SKILL.md
+│   ├── internal-audit/SKILL.md
+│   ├── statement-prep/SKILL.md
+│   └── month-end-close/SKILL.md
+├── scripts/                     # 5 个脚本，仅标准库
+│   ├── fin_ratios.py
+│   ├── zscore_eva.py
+│   ├── variance_decompose.py
+│   ├── reconcile_check.py
+│   └── tax_calc.py
+└── assets/
+    ├── samples/                 # 9 份虚构样例
+    └── templates/               # 6 份输出模板
+```
+
 ## 安装
 
 把本目录放到 Agent 的 skills 目录：
 
 ```bash
-cp -r enterprise-fin-tax ~/.dsh/skills/
+cp -r business-fin-tax ~/.dsh/skills/
 ```
 
 各 Agent 的 skills 目录不同，按实际环境放置；DSH 下重启会话或新开会话即可识别。
@@ -91,4 +126,4 @@ cp -r enterprise-fin-tax ~/.dsh/skills/
 
 ## 许可
 
-MIT
+Apache License 2.0，见 [LICENSE](LICENSE)。

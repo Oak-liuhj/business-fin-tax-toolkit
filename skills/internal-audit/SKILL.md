@@ -1,10 +1,10 @@
----
-slug: enterprise-fin-tax-internal-audit
+﻿---
+slug: business-fin-tax-internal-audit
 displayName: 内部审计
 version: 0.1.0
 summary: 六大业务循环审计程序、数据分析全量测试、SOX 404 控制评价与 IFRS 适配。
-license: MIT
-name: enterprise-fin-tax-internal-audit
+license: Apache-2.0
+name: business-fin-tax-internal-audit
 description: 内部审计与内控评价。输出审计计划、六大循环（采购付款、销售收款、存货成本、薪酬人事、资金银行、固定资产）审计程序、抽样方案、全量数据分析异常筛查、SOX 404 控制缺陷分级、CAS 与 IFRS 差异处理、发现报告与整改跟踪。触发词：内部审计、内控、审计程序、SOX、404、控制测试、审计发现、抽查、数据分析审计、IFRS。
 ---
 
