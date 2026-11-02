@@ -37,7 +37,7 @@ business-fin-tax-toolkit/
 ├── SKILL.md                     # 主入口：角色路由、命令别名表、五步流程、三条红线
 ├── README.md
 ├── SELFTEST.md                  # 自测记录与待执行命令
-├── LICENSE                      # Apache-2.0
+├── LICENSE.md                   # Apache-2.0
 ├── references/                  # 知识底座（6 份）
 │   ├── cas-basics.md            # CAS 准则口径
 │   ├── entry-templates.md       # 标准分录模板库（凭证参考）
@@ -118,7 +118,7 @@ cp -r business-fin-tax ~/.dsh/skills/
 
 ## 自测
 
-见 `SELFTEST.md`。**注意**：当前开发机 `pwsh` 崩溃（`0xC0000142`），脚本尚未真实执行，仅有静态检查记录，首次运行后须更新该文件。
+见 `SELFTEST.md`。五个脚本已在 Python 3.13 下真实执行：`py_compile` 全部通过，`--example` 与 `assets/samples/` 样例数据端到端运行均 `exit 0`，`reconcile_check.py` 九项勾稽 9/9 通过、`tax_calc.py` 应纳税所得额 7,998,000 与手算一致。
 
 ## 版本
 
@@ -126,4 +126,4 @@ cp -r business-fin-tax ~/.dsh/skills/
 
 ## 许可
 
-Apache License 2.0，见 [LICENSE](LICENSE)。
+Apache License 2.0，见 [LICENSE.md](LICENSE.md)。
