@@ -1,0 +1,27 @@
+{
+  "company": "虚构示例制造有限公司",
+  "period": "2026年度",
+  "unit": "元",
+  "zscore_input": {
+    "total_assets": 120000000,
+    "working_capital": 10500000,
+    "retained_earnings": 6000000,
+    "ebit": 16000000,
+    "total_liabilities": 68000000,
+    "revenue": 180000000,
+    "total_equity": 52000000,
+    "market_cap": 90000000
+  },
+  "eva_input": {
+    "ebit": 16000000,
+    "tax_rate": 0.25,
+    "interest_bearing_debt": 30000000,
+    "total_equity": 52000000,
+    "excess_cash": 2000000,
+    "rf": 0.025,
+    "beta": 1.1,
+    "erp": 0.06,
+    "cost_of_debt": 0.045,
+    "debt_ratio": 0.35
+  }
+}

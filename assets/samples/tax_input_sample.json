@@ -1,0 +1,51 @@
+{
+  "unit": "元",
+  "period": "2026年2月",
+  "note": "全部虚构；税率、退税率、加计比例仅为演示，实务须核对当期文件",
+  "vat": {
+    "sales_excl_tax": 2140000,
+    "output_rate": 0.13,
+    "input_tax": 204000,
+    "input_transfer_out": 0,
+    "opening_credit": 0,
+    "simple_sales_excl_tax": 0,
+    "simple_rate": 0.03
+  },
+  "surcharge": {
+    "base": 74200,
+    "city_rate": 0.07,
+    "edu_rate": 0.03,
+    "local_edu_rate": 0.02
+  },
+  "export": {
+    "fob_rmb": 1200000,
+    "levy_rate": 0.13,
+    "refund_rate": 0.10,
+    "domestic_output_tax": 150000,
+    "input_tax": 204000,
+    "opening_credit": 0,
+    "note": "出口业务独立测算：内销销项按 150,000 假设，与 vat 段不是同一情景"
+  },
+  "super_deduction": {
+    "ratio": 0.05,
+    "current_deductible_input": 204000,
+    "opening_balance": 0,
+    "current_decrease": 0
+  },
+  "cit": {
+    "accounting_profit": 12600000,
+    "revenue": 180000000,
+    "salary_total": 24000000,
+    "entertainment_expense": 600000,
+    "advertising_expense": 20000000,
+    "welfare_expense": 3600000,
+    "education_expense": 2200000,
+    "donation": 2000000,
+    "rd_expense": 6000000,
+    "rd_super_ratio": 1.0,
+    "other_add": 150000,
+    "other_less": 0,
+    "loss_carryforward": 0,
+    "tax_rate": 0.25
+  }
+}

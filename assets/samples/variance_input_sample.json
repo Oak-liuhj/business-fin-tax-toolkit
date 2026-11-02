@@ -1,0 +1,25 @@
+{
+  "period": "2026年1-2月",
+  "unit": "元",
+  "revenue": {
+    "items": [
+      {"name": "A产品", "budget_qty": 10000, "budget_price": 120, "actual_qty": 9200, "actual_price": 118},
+      {"name": "B产品", "budget_qty": 5000, "budget_price": 260, "actual_qty": 5600, "actual_price": 245},
+      {"name": "C产品", "budget_qty": 2000, "budget_price": 480, "actual_qty": 1500, "actual_price": 450}
+    ]
+  },
+  "cost": {
+    "items": [
+      {"name": "原材料X", "budget_qty": 12000, "budget_price": 42, "actual_qty": 11800, "actual_price": 45},
+      {"name": "原材料Y", "budget_qty": 6000, "budget_price": 68, "actual_qty": 5900, "actual_price": 66},
+      {"name": "直接人工", "budget_qty": 18000, "budget_price": 32, "actual_qty": 17600, "actual_price": 34}
+    ]
+  },
+  "expense": {
+    "fixed_budget": 730000,
+    "variable_rate_budget": 0.05,
+    "revenue_budget": 3460000,
+    "revenue_actual": 3132600,
+    "expense_actual": 900000
+  }
+}

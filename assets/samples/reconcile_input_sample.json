@@ -1,0 +1,36 @@
+{
+  "period": "2026年度",
+  "unit": "元",
+  "balance": {
+    "total_assets": 120000000,
+    "total_liabilities": 68000000,
+    "total_equity": 52000000,
+    "cash": 9000000,
+    "opening_total_assets": 112000000,
+    "undistributed_profit": 14200000,
+    "opening_undistributed_profit": 4000000
+  },
+  "income": {
+    "net_profit": 10200000,
+    "income_tax": 2400000,
+    "current_tax": 2350000,
+    "deferred_tax": 50000
+  },
+  "cashflow": {
+    "net_increase": 1000000,
+    "opening_cash": 8000000,
+    "closing_cash": 9000000,
+    "operating_cash_flow": 14800000,
+    "net_profit": 10200000,
+    "depreciation_amortization": 1200000
+  },
+  "detail": {
+    "line_items": {
+      "流动资产合计": [49500000, 50000, 8950000, 18000000, 2000000, 500000, 8000000, 12000000]
+    }
+  },
+  "equity_change": {
+    "closing_total": 52000000,
+    "balance_total_equity": 52000000
+  }
+}

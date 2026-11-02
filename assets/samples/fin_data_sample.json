@@ -1,0 +1,79 @@
+{
+  "company": "虚构示例制造有限公司",
+  "period": "2026年度",
+  "unit": "元",
+  "current": {
+    "balance": {
+      "total_assets": 120000000,
+      "current_assets": 49500000,
+      "inventory": 20000000,
+      "accounts_receivable": 18000000,
+      "accounts_payable": 15000000,
+      "cash": 9000000,
+      "current_liabilities": 39000000,
+      "total_liabilities": 68000000,
+      "total_equity": 52000000,
+      "interest_bearing_debt": 30000000,
+      "retained_earnings": 14200000,
+      "working_capital": 10500000
+    },
+    "income": {
+      "revenue": 180000000,
+      "cogs": 132000000,
+      "ebit": 16000000,
+      "interest_expense": 2800000,
+      "profit_before_tax": 12600000,
+      "net_profit": 10200000,
+      "income_tax": 2400000,
+      "current_tax": 2350000,
+      "deferred_tax": 50000,
+      "depreciation": 1000000,
+      "amortization": 200000,
+      "selling_expense": 12000000,
+      "admin_expense": 14000000,
+      "rd_expense": 6000000,
+      "finance_expense": 2800000
+    },
+    "cashflow": {
+      "operating_cash_flow": 14800000,
+      "capex": 9000000,
+      "cash_from_sales": 172000000,
+      "net_increase": 1000000,
+      "opening_cash": 8000000,
+      "closing_cash": 9000000,
+      "net_profit": 10200000,
+      "depreciation_amortization": 1200000
+    }
+  },
+  "prior": {
+    "balance": {
+      "total_assets": 112000000,
+      "current_assets": 52000000,
+      "inventory": 20000000,
+      "accounts_receivable": 16000000,
+      "accounts_payable": 14000000,
+      "cash": 8000000,
+      "current_liabilities": 35000000,
+      "total_liabilities": 62000000,
+      "total_equity": 50000000,
+      "interest_bearing_debt": 26000000,
+      "retained_earnings": 4000000,
+      "working_capital": 17000000
+    },
+    "income": {
+      "revenue": 165000000,
+      "cogs": 119000000,
+      "ebit": 15000000,
+      "interest_expense": 2200000,
+      "profit_before_tax": 12800000,
+      "net_profit": 9600000,
+      "depreciation": 900000,
+      "amortization": 200000
+    },
+    "cashflow": {
+      "operating_cash_flow": 12500000,
+      "capex": 8000000,
+      "cash_from_sales": 158000000
+    }
+  }
+}
