@@ -1,4 +1,4 @@
-﻿---
+---
 slug: business-fin-tax-budget-variance
 displayName: 预算与实际差异分析
 version: 0.1.0

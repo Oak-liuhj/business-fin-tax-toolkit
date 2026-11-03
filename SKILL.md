@@ -1,4 +1,4 @@
-﻿---
+---
 slug: business-fin-tax
 displayName: 企业财税专家
 version: 0.1.0

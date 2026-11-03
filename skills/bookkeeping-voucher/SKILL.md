@@ -1,4 +1,4 @@
-﻿---
+---
 slug: business-fin-tax-bookkeeping-voucher
 displayName: 记账凭证编制
 version: 0.1.0

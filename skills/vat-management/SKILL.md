@@ -1,4 +1,4 @@
-﻿---
+---
 slug: business-fin-tax-vat-management
 displayName: 增值税管理
 version: 0.1.0

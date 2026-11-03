@@ -1,4 +1,4 @@
-﻿---
+---
 slug: business-fin-tax-month-end-close
 displayName: 月结管理
 version: 0.1.0

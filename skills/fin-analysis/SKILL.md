@@ -1,4 +1,4 @@
-﻿---
+---
 slug: business-fin-tax-fin-analysis
 displayName: 财务分析诊断
 version: 0.1.0

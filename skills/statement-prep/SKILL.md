@@ -1,4 +1,4 @@
-﻿---
+---
 slug: business-fin-tax-statement-prep
 displayName: 财务报表编制
 version: 0.1.0

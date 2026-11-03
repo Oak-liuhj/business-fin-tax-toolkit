@@ -1,4 +1,4 @@
-﻿---
+---
 slug: business-fin-tax-internal-audit
 displayName: 内部审计
 version: 0.1.0
