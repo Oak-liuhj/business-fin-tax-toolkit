@@ -20,7 +20,7 @@
   "export": {
     "fob_rmb": 1200000,
     "levy_rate": 0.13,
-    "refund_rate": 0.10,
+    "refund_rate": 0.1,
     "domestic_output_tax": 150000,
     "input_tax": 204000,
     "opening_credit": 0,
@@ -47,5 +47,29 @@
     "other_less": 0,
     "loss_carryforward": 0,
     "tax_rate": 0.25
+  },
+  "context": {
+    "company_id": "DEMO-COMPANY",
+    "ledger_id": "DEMO-LEDGER",
+    "company": "虚构制造有限公司",
+    "period": "2026年2月",
+    "period_start": "2026-02-01",
+    "period_end": "2026-02-28",
+    "currency": "CNY",
+    "unit": "元",
+    "accounting_standard": "CAS",
+    "scope": "single",
+    "profit_state": "unclosed",
+    "region": "演示地区",
+    "industry": "演示制造业",
+    "taxpayer_type": "一般纳税人",
+    "as_of": "2026-11-06"
+  },
+  "policy_bindings": {
+    "vat": "demo-tax-mechanism-2026",
+    "surcharge": "demo-tax-mechanism-2026",
+    "export": "demo-tax-mechanism-2026",
+    "super_deduction": "demo-tax-mechanism-2026",
+    "cit": "demo-tax-mechanism-2026"
   }
 }

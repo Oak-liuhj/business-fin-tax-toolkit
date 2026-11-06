@@ -1,0 +1,7 @@
+{
+  "note": "全部虚构；到期年与policy_id仅演示台账机制，非政策有效性证明。",
+  "records": [
+    {"id": "demo-loss-2023", "kind": "loss", "origin_year": 2023, "expiry_year": 2028, "amount": "100000", "used_by_year": {"2025": "20000"}, "qualified": true, "policy_id": "DEMO-ONLY", "evidence": "DEMO-ONLY"},
+    {"id": "demo-donation-expired", "kind": "donation", "origin_year": 2020, "expiry_year": 2023, "amount": "5000", "used_by_year": {}, "qualified": true, "policy_id": "DEMO-ONLY", "evidence": "DEMO-ONLY"}
+  ]
+}

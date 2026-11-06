@@ -8,7 +8,9 @@
     "cash": 9000000,
     "opening_total_assets": 112000000,
     "undistributed_profit": 14200000,
-    "opening_undistributed_profit": 4000000
+    "opening_undistributed_profit": 4000000,
+    "opening_total_liabilities": 62000000,
+    "opening_total_equity": 50000000
   },
   "income": {
     "net_profit": 10200000,
@@ -26,11 +28,29 @@
   },
   "detail": {
     "line_items": {
-      "流动资产合计": [49500000, 50000, 8950000, 18000000, 2000000, 500000, 8000000, 12000000]
+      "流动资产合计": [
+        49500000,
+        50000,
+        8950000,
+        18000000,
+        2000000,
+        500000,
+        8000000,
+        12000000
+      ]
     }
   },
   "equity_change": {
     "closing_total": 52000000,
     "balance_total_equity": 52000000
-  }
+  },
+  "prior_closing": {
+    "total_assets": 112000000,
+    "total_liabilities": 62000000,
+    "total_equity": 50000000
+  },
+  "ledger": {
+    "depreciation_amortization": 1200000
+  },
+  "note": "全部虚构；补充的总账计提额及上期三项总计仅用于独立比较演示，不来自科目余额表_sample.csv。"
 }

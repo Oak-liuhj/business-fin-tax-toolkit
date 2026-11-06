@@ -29,10 +29,11 @@
 import argparse
 import json
 import sys
+from common import ZERO, cli, dumps, field, money, number, read_json
 
 
-def f(v, default=0.0):
-    return float(v) if isinstance(v, (int, float)) else default
+def f(v, default=None):
+    return number(v)
 
 
 def decompose_revenue(items):
@@ -42,50 +43,55 @@ def decompose_revenue(items):
     rev_b = sum(f(i.get("budget_qty")) * f(i.get("budget_price")) for i in items)
     rev_a = sum(f(i.get("actual_qty")) * f(i.get("actual_price")) for i in items)
 
-    wavg_b = (rev_b / total_qty_b) if total_qty_b else 0.0
+    if total_qty_b == 0 and total_qty_a != 0:
+        raise ValueError("预算销量为零，需补充新品量价结构分解基准")
+    wavg_b = (rev_b / total_qty_b) if total_qty_b else ZERO
 
-    rows, vol, price, mix = [], 0.0, 0.0, 0.0
+    rows, vol, price, mix = [], ZERO, ZERO, ZERO
     for i in items:
         qb, pb, qa, pa = f(i.get("budget_qty")), f(i.get("budget_price")), \
             f(i.get("actual_qty")), f(i.get("actual_price"))
-        v_i = (qa - qb) * pb
+        v_i = (qa - qb) * wavg_b
         p_i = (pa - pb) * qa
         m_i = (qa - qb) * (pb - wavg_b)
         vol += v_i
         price += p_i
         mix += m_i
-        rows.append({"name": i.get("name", ""), "revenue_budget": round(qb * pb, 2),
-                     "revenue_actual": round(qa * pa, 2),
-                     "diff": round(qa * pa - qb * pb, 2),
-                     "volume": round(v_i, 2), "price": round(p_i, 2), "mix": round(m_i, 2)})
+        rows.append({"name": i.get("name", ""), "revenue_budget": money(qb * pb),
+                     "revenue_actual": money(qa * pa),
+                     "diff": money(qa * pa - qb * pb),
+                     "volume": money(v_i), "price": money(p_i), "mix": money(m_i)})
 
     total_diff = rev_a - rev_b
     return {
-        "total_budget": round(rev_b, 2), "total_actual": round(rev_a, 2),
-        "total_diff": round(total_diff, 2),
+        "total_budget": money(rev_b), "total_actual": money(rev_a),
+        "total_diff": money(total_diff),
         "diff_pct": round(total_diff / rev_b, 4) if rev_b else None,
-        "volume_effect": round(vol, 2), "price_effect": round(price, 2),
-        "mix_effect": round(mix, 2),
-        "check_residual": round(total_diff - (vol + price), 2),
-        "note": "结构差以预算加权均价为基准，价格效应取实际销量为权；量差+价差=总差异，结构差含于其中，勿重复相加。",
+        "volume_effect": money(vol), "price_effect": money(price),
+        "mix_effect": money(mix),
+        "check_residual": money(total_diff - (vol + price + mix)),
+        "note": "结构差以预算加权均价为基准，价格效应取实际销量为权；纯量差+价差+结构差=总差异；产品销量必须具有可比单位。",
         "rows": rows,
     }
 
 
 def decompose_cost(items):
-    rows, total_diff = [], 0.0
+    rows, total_diff = [], ZERO
     for i in items:
         qb, pb, qa, pa = f(i.get("budget_qty")), f(i.get("budget_price")), \
             f(i.get("actual_qty")), f(i.get("actual_price"))
         price_v = (pa - pb) * qa          # 价格差异
-        qty_v = (qa - qb) * pb            # 用量差异
+        standard = f(i.get("standard_qty_for_actual_output", qb))
+        qty_v = (qa - standard) * pb
+        activity_v = (standard - qb) * pb            # 用量差异
         diff = qa * pa - qb * pb
         total_diff += diff
-        rows.append({"name": i.get("name", ""), "cost_budget": round(qb * pb, 2),
-                     "cost_actual": round(qa * pa, 2), "diff": round(diff, 2),
-                     "price_variance": round(price_v, 2), "quantity_variance": round(qty_v, 2),
+        rows.append({"name": i.get("name", ""), "cost_budget": money(qb * pb),
+                     "cost_actual": money(qa * pa), "diff": money(diff),
+                     "price_variance": money(price_v), "quantity_variance": money(qty_v), "activity_variance": money(activity_v),
+                     "basis": "实际产出标准耗用" if "standard_qty_for_actual_output" in i else "静态预算差异，不能单独解释为效率",
                      "flag": "U (不利)" if diff > 0 else ("F (有利)" if diff < 0 else "—")}) 
-    return {"total_diff": round(total_diff, 2), "rows": rows,
+    return {"total_diff": money(total_diff), "rows": rows,
             "note": "成本类差异超预算为不利(U)，低于预算为有利(F)。"}
 
 
@@ -101,9 +107,9 @@ def decompose_expense(e):
     spending = ea - flex_budget                    # 真实超支
     total = ea - base_budget
     return {
-        "budget_static": round(base_budget, 2), "flex_budget": round(flex_budget, 2),
-        "actual": round(ea, 2), "total_diff": round(total, 2),
-        "volume_effect": round(volume_effect, 2), "spending_variance": round(spending, 2),
+        "budget_static": money(base_budget), "flex_budget": money(flex_budget),
+        "actual": money(ea), "total_diff": money(total),
+        "volume_effect": money(volume_effect), "spending_variance": money(spending),
         "flag": "U (不利)" if total > 0 else ("F (有利)" if total < 0 else "—"),
         "note": "spending_variance 才是真实可控差异；volume_effect 是收入变动带来的合理增减。",
     }
@@ -133,40 +139,38 @@ def main():
     a = ap.parse_args()
 
     if a.example:
-        print(json.dumps(EXAMPLE, ensure_ascii=False, indent=2))
+        print(dumps(EXAMPLE))
         return 0
     if not a.input:
         ap.print_help()
         return 2
 
-    with open(a.input, "r", encoding="utf-8") as fh:
-        data = json.load(fh)
+    data = read_json(a.input)
 
-    rev = decompose_revenue((data.get("revenue") or {}).get("items") or [])
-    cost = decompose_cost((data.get("cost") or {}).get("items") or [])
-    exp = decompose_expense(data.get("expense") or {})
+    if not any(data.get(k) for k in ("revenue", "cost", "expense")):
+        raise ValueError("缺少预算分析数据")
+    rev = decompose_revenue(data["revenue"]["items"]) if data.get("revenue") else None
+    cost = decompose_cost(data["cost"]["items"]) if data.get("cost") else None
+    exp = decompose_expense(data["expense"]) if data.get("expense") else None
     out = {"period": data.get("period", ""), "unit": data.get("unit", ""),
            "revenue": rev, "cost": cost, "expense": exp}
 
     if a.md:
-        L = [f"# 预算差异分解 · {out['period']}", "", "## 收入", "",
-             "| 产品 | 预算 | 实际 | 差异 | 量差 | 价差 | 结构差 |", "|---|---|---|---|---|---|---|"]
-        for x in rev["rows"]:
-            L.append(f"| {x['name']} | {x['revenue_budget']} | {x['revenue_actual']} | {x['diff']} | "
-                     f"{x['volume']} | {x['price']} | {x['mix']} |")
-        L += ["", f"合计差异 {rev['total_diff']}（量差 {rev['volume_effect']}，价差 {rev['price_effect']}，"
-                  f"结构差 {rev['mix_effect']}）", "", "## 成本", "",
-              "| 项目 | 预算 | 实际 | 差异 | 价格差异 | 用量差异 | 有利/不利 |", "|---|---|---|---|---|---|---|"]
-        for x in cost["rows"]:
-            L.append(f"| {x['name']} | {x['cost_budget']} | {x['cost_actual']} | {x['diff']} | "
-                     f"{x['price_variance']} | {x['quantity_variance']} | {x['flag']} |")
-        L += ["", "## 费用（弹性预算）", "",
-              f"- 原预算 {exp['budget_static']}", f"- 弹性预算 {exp['flex_budget']}",
-              f"- 实际 {exp['actual']}", f"- 总差异 {exp['total_diff']}（{exp['flag']}）",
-              f"- 其中收入量影响 {exp['volume_effect']}，真实可控差异 {exp['spending_variance']}"]
+        L = [f"# 预算差异分解 · {out['period']}", ""]
+        if rev is not None:
+            L += ["## 收入", "", "| 产品 | 预算 | 实际 | 差异 | 纯量差 | 价差 | 结构差 |",
+                  "|---|---|---|---|---|---|---|"]
+            for x in rev["rows"]:
+                L.append(f"| {x['name']} | {x['revenue_budget']} | {x['revenue_actual']} | {x['diff']} | "
+                         f"{x['volume']} | {x['price']} | {x['mix']} |")
+            L += ["", f"合计差异：{rev['total_diff']}；残差：{rev['check_residual']}", rev["note"]]
+        if cost is not None:
+            L += ["", "## 成本", "", "```json", dumps(cost), "```"]
+        if exp is not None:
+            L += ["", "## 费用（弹性预算）", "", "```json", dumps(exp), "```"]
         text = "\n".join(L)
     else:
-        text = json.dumps(out, ensure_ascii=False, indent=2)
+        text = dumps(out)
 
     if a.output:
         with open(a.output, "w", encoding="utf-8") as fh:
@@ -178,4 +182,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(cli(main))

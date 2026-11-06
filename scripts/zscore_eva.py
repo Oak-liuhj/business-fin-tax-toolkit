@@ -18,11 +18,12 @@ WACC 全部参数必须显式给出，缺失则拒绝计算（不猜）。
 import argparse
 import json
 import sys
+from common import cli, dumps, field, money, number, read_json
 
 
 def num(d, k):
-    v = (d or {}).get(k)
-    return float(v) if isinstance(v, (int, float)) else None
+    v = field(d or {}, k)
+    return float(v) if v is not None else None
 
 
 def safe_div(a, b):
@@ -33,7 +34,7 @@ def safe_div(a, b):
 
 def zscore(b, version="listed_1968"):
     ta = num(b, "total_assets")
-    if ta is None or ta == 0:
+    if ta is None or ta <= 0:
         return {"error": "缺少 total_assets，无法计算 Z-Score"}
     wc = num(b, "working_capital")
     if wc is None:
@@ -51,12 +52,15 @@ def zscore(b, version="listed_1968"):
     x3 = safe_div(ebit, ta)
     x5 = safe_div(rev, ta)
 
-    missing = [n for n, v in (("X1", x1), ("X2", x2), ("X3", x3), ("X5", x5)) if v is None]
+    missing = [n for n, v in (("X1", x1), ("X2", x2), ("X3", x3)) + (() if version == "emerging_z2" else (("X5", x5),)) if v is None]
     if missing:
         return {"error": "缺少计算所需字段: " + ", ".join(missing)}
 
+    if tl is None or tl <= 0:
+        return {"error": "total_liabilities 必须大于0；零负债不适用该模型"}
+
     res = {"version": version, "x1_wc_ta": round(x1, 4), "x2_re_ta": round(x2, 4),
-           "x3_ebit_ta": round(x3, 4), "x5_rev_ta": round(x5, 4)}
+           "x3_ebit_ta": round(x3, 4), "x5_rev_ta": round(x5, 4) if x5 is not None else None}
 
     if version == "listed_1968":
         if eq_mv is None or tl is None:
@@ -90,20 +94,24 @@ def zscore(b, version="listed_1968"):
 
 
 def eva(d):
-    ebit = num(d, "ebit")
-    tax = num(d, "tax_rate")
-    debt = num(d, "interest_bearing_debt")
-    eq = num(d, "total_equity")
-    excess_cash = num(d, "excess_cash") or 0.0
-    wacc = num(d, "wacc")
+    ebit = field(d, "ebit")
+    tax = field(d, "tax_rate")
+    debt = field(d, "interest_bearing_debt")
+    eq = field(d, "total_equity")
+    excess_cash = field(d, "excess_cash", 0, minimum=0)
+    wacc = field(d, "wacc", minimum=0, maximum=1)
+    if tax is not None and not 0 <= tax <= 1:
+        raise ValueError("tax_rate 必须在0到1之间")
+    if d.get("debt_ratio") is not None:
+        field(d, "debt_ratio", minimum=0, maximum=1)
 
     if ebit is None or tax is None:
         return {"error": "缺少 ebit 或 tax_rate"}
     if wacc is None:
         params = {k: d.get(k) for k in ("rf", "beta", "erp", "cost_of_debt", "debt_ratio", "tax_rate")}
         if all(v is not None for v in params.values()):
-            rf, beta, erp = float(params["rf"]), float(params["beta"]), float(params["erp"])
-            rd, dr, t = float(params["cost_of_debt"]), float(params["debt_ratio"]), float(params["tax_rate"])
+            rf, beta, erp = number(params["rf"]), number(params["beta"]), number(params["erp"])
+            rd, dr, t = number(params["cost_of_debt"]), number(params["debt_ratio"]), number(params["tax_rate"])
             re_ = rf + beta * erp
             wacc = (1 - dr) * re_ + dr * rd * (1 - t)
             computed = {"re": round(re_, 4), "wacc": round(wacc, 4),
@@ -119,12 +127,14 @@ def eva(d):
 
     nopat = ebit * (1 - tax)
     ic = debt + eq - excess_cash
+    if ic <= 0:
+        raise ValueError("投入资本必须大于0，检查权益、债务和超额现金")
     capital_charge = wacc * ic
     value = nopat - capital_charge
     return {
-        "nopat": round(nopat, 2), "invested_capital": round(ic, 2),
-        "wacc": computed["wacc"], "capital_charge": round(capital_charge, 2),
-        "eva": round(value, 2),
+        "nopat": money(nopat), "invested_capital": money(ic),
+        "wacc": computed["wacc"], "capital_charge": money(capital_charge),
+        "eva": money(value),
         "verdict": "创造价值 (EVA>0)" if value > 0 else ("毁灭价值 (EVA<0)" if value < 0 else "价值中性"),
         "wacc_detail": computed,
         "note": "投入资本含超额现金调整；超额现金若未提供按 0 处理。",
@@ -157,14 +167,13 @@ def main():
     a = ap.parse_args()
 
     if a.example:
-        print(json.dumps(EXAMPLE, ensure_ascii=False, indent=2))
+        print(dumps(EXAMPLE))
         return 0
     if not a.input:
         ap.print_help()
         return 2
 
-    with open(a.input, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    data = read_json(a.input)
 
     z = zscore(data.get("zscore_input", {}), a.version)
     e = eva(data.get("eva_input", {}))
@@ -188,7 +197,7 @@ def main():
                       f"- EVA：{e['eva']}（{e['verdict']}）"]
         text = "\n".join(lines)
     else:
-        text = json.dumps(out, ensure_ascii=False, indent=2)
+        text = dumps(out)
 
     if a.output:
         with open(a.output, "w", encoding="utf-8") as f:
@@ -196,8 +205,8 @@ def main():
         print(f"已写入 {a.output}")
     else:
         print(text)
-    return 0
+    return 2 if "error" in z or "error" in e else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(cli(main))

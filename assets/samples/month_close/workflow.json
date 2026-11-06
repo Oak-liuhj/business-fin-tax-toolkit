@@ -1,0 +1,22 @@
+{
+  "context": {
+    "company_id": "DEMO-COMPANY",
+    "ledger_id": "DEMO-LEDGER",
+    "company": "虚构制造有限公司",
+    "period": "2026年1月",
+    "period_start": "2026-01-01",
+    "period_end": "2026-01-31",
+    "currency": "CNY",
+    "unit": "元",
+    "accounting_standard": "CAS",
+    "scope": "single",
+    "profit_state": "unclosed",
+    "demo": true
+  },
+  "trial_balance": "trial_balance.csv",
+  "bank": "bank.csv",
+  "support": "support.json",
+  "mapping": "../../../references/account-mapping.json",
+  "input_unit": "元",
+  "annualize": false
+}

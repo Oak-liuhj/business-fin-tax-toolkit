@@ -1,7 +1,7 @@
 ---
 slug: business-fin-tax-internal-audit
 displayName: 内部审计
-version: 0.1.0
+version: 0.2.0
 summary: 六大业务循环审计程序、数据分析全量测试、SOX 404 控制评价与 IFRS 适配。
 license: Apache-2.0
 name: business-fin-tax-internal-audit
@@ -112,3 +112,6 @@ description: 内部审计与内控评价。输出审计计划、六大循环（�
 - [ ] 发现只写事实，推测已标"待核实"
 - [ ] 建议有责任人、期限、可验证的完成标准
 - [ ] 涉及 IFRS 时确认过准则版本
+## 证据与方法边界
+
+数据异常必须能回指原文件/工作表/行号，导入工具为 `scripts/data_ingest.py`。样本量表仅为项目规划参考，需结合控制风险、总体、预期偏差和容忍偏差确定，不宣称固定样本量满足所有SOX项目。SOX是内控要求，与CAS/IFRS报告准则分开确认。

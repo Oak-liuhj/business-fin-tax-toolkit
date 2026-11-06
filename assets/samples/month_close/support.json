@@ -1,0 +1,66 @@
+{
+  "context": {
+    "company_id": "DEMO-COMPANY",
+    "ledger_id": "DEMO-LEDGER",
+    "company": "虚构制造有限公司",
+    "period": "2026年1月",
+    "period_start": "2026-01-01",
+    "period_end": "2026-01-31",
+    "currency": "CNY",
+    "unit": "元",
+    "accounting_standard": "CAS",
+    "scope": "single",
+    "profit_state": "unclosed",
+    "demo": true
+  },
+  "note": "全部虚构。复核人及证据标识均为演示，不能作为真实企业审批。",
+  "bank_opening_balances": {
+    "DEMO001": 100000
+  },
+  "cashflow": {
+    "net_profit": 21000,
+    "depreciation_amortization": 2000,
+    "capex": 0
+  },
+  "ledger": {
+    "depreciation_amortization": 2000,
+    "depreciation": 2000,
+    "amortization": 0
+  },
+  "income": {
+    "interest_expense": 0,
+    "current_tax": 7000,
+    "deferred_tax": 0
+  },
+  "prior_closing": {
+    "total_assets": 190000,
+    "total_liabilities": 40000,
+    "total_equity": 150000
+  },
+  "equity_change": {
+    "closing_total": 171000
+  },
+  "bridges": {
+    "profit_distribution": 0,
+    "reserve_transfer": 0,
+    "prior_adjustment": 0,
+    "restricted_cash": 0,
+    "cash_equivalents_extra": 0
+  },
+  "mapping_review": {
+    "reviewer": "DEMO-REVIEWER",
+    "evidence": "DEMO-MAPPING-REVIEW",
+    "mapping_sha256": "ddc33e59cff0cac11f2f1f1857d0b63b1a1814427bc26d7badbfc2b822d435c6"
+  },
+  "cashflow_review": {
+    "reviewer": "DEMO-REVIEWER",
+    "evidence": "DEMO-CASHFLOW-REVIEW",
+    "bank_sha256": "4bfc3ae620a81c3819237e79690eee6db3bee3cbad998e43a8b1fe2e3219fc37"
+  },
+  "statement_controls": {
+    "total_assets": 213000,
+    "total_liabilities": 42000,
+    "revenue": 60000,
+    "net_profit": 21000
+  }
+}

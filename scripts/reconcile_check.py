@@ -1,206 +1,100 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""报表勾稽校验（纯标准库）：九项检查，逐项给出通过/差额/提示。
-
-用法:
-  python reconcile_check.py --example
-  python reconcile_check.py -i input.json [--md]
-
-输入 JSON（缺项的检查自动跳过并标注）:
-{
-  "period": "2026年度",
-  "balance": {"total_assets":..., "total_liabilities":..., "total_equity":...,
-              "cash":..., "opening_total_assets":..., "opening_total_liabilities":...,
-              "opening_total_equity":..., "undistributed_profit":..., "opening_undistributed_profit":...},
-  "income": {"net_profit":..., "income_tax":..., "current_tax":..., "deferred_tax":...},
-  "cashflow": {"net_increase":..., "opening_cash":..., "closing_cash":...,
-               "operating_cash_flow":..., "net_profit":..., "depreciation_amortization":...},
-  "detail": {"line_items": {"资产总计": [100, 40, 60], ...}},   # 可选：小计=明细之和
-  "equity_change": {"closing_total":..., "balance_total_equity":...}   # 可选
-}
-"""
-
+"""九项勾稽：0=全部通过，1=校验失败，2=缺数据/待复核/非法输入。"""
 import argparse
-import json
 import sys
-
-TOL = 0.01  # 允许的四舍五入误差
-
-
-def n(d, k):
-    v = (d or {}).get(k)
-    return float(v) if isinstance(v, (int, float)) else None
-
-
-def check(no, name, ok, detail, hint=""):
-    return {"no": no, "item": name, "status": "通过" if ok else "未通过",
-            "detail": detail, "hint": hint if not ok else ""}
+from common import ZERO, cli, emit, field, number, read_json
 
 
 def run(data):
-    b = data.get("balance") or {}
-    inc = data.get("income") or {}
-    cf = data.get("cashflow") or {}
+    if not isinstance(data, dict):
+        raise ValueError('输入必须为 JSON 对象')
+    b, inc, cf = (data.get(k) or {} for k in ('balance', 'income', 'cashflow'))
+    bridge, ledger, previous, ec = (data.get(k) or {} for k in
+                                   ('bridges', 'ledger', 'prior_closing', 'equity_change'))
+    tol = field(data, 'tolerance', '0.01', minimum=0)
     res = []
 
-    # 1 资产 = 负债 + 权益
-    ta, tl, te = n(b, "total_assets"), n(b, "total_liabilities"), n(b, "total_equity")
-    if None not in (ta, tl, te):
-        diff = ta - (tl + te)
-        res.append(check(1, "资产 = 负债 + 所有者权益", abs(diff) <= TOL,
-                         f"资产 {ta:.2f}，负债+权益 {tl + te:.2f}，差额 {diff:.2f}",
-                         "检查是否存在未结转损益、科目归类错误或漏记凭证"))
+    def compare(no, title, values, formula, hint, manual=False):
+        if any(v is None for v in values):
+            status, detail, diff = ('待人工复核' if manual else '缺数据'), '未取得完整比较双方数据', None
+        else:
+            diff = formula(*values)
+            status, detail = ('通过' if abs(diff) <= tol else '未通过'), f'差额 {diff}'
+        res.append({'no': no, 'item': title, 'status': status, 'difference': diff,
+                    'detail': detail, 'hint': hint if status != '通过' else ''})
+
+    n = field
+    compare(1, '资产 = 负债 + 所有者权益',
+            [n(b, k) for k in ('total_assets', 'total_liabilities', 'total_equity')],
+            lambda a, l, e: a-l-e, '检查未结转损益、归类和漏记凭证')
+    compare(2, '净利润 ↔ 未分配利润变动（含桥接）',
+            [n(b, 'undistributed_profit'), n(b, 'opening_undistributed_profit'), n(inc, 'net_profit'),
+             n(bridge, 'profit_distribution', 0), n(bridge, 'reserve_transfer', 0),
+             n(bridge, 'prior_adjustment', 0)],
+            lambda c, o, p, d, r, a: c-o-(p-d-r+a), '核实分红、公积提取和前期调整')
+    cash_values = [n(cf, k) for k in ('net_increase', 'opening_cash', 'closing_cash')]
+    cash_values += [n(b, 'cash'), n(bridge, 'restricted_cash', 0), n(bridge, 'cash_equivalents_extra', 0)]
+    compare(3, '现金净增加额及现金等价物口径桥接', cash_values,
+            lambda ni, o, c, cash, restricted, extra: max(abs(ni-(c-o)), abs(c-(cash-restricted+extra))),
+            '核对受限资金、现金等价物及汇率影响')
+    compare(4, '现金流补充资料净利润 = 利润表净利润',
+            [n(cf, 'net_profit'), n(inc, 'net_profit')], lambda a, b: a-b, '核对补充资料起点')
+    compare(5, '折旧摊销 = 总账本期计提',
+            [n(cf, 'depreciation_amortization'), n(ledger, 'depreciation_amortization')],
+            lambda a, b: a-b, '取得总账计提额，区分处置、外币折算及其他变动', manual=True)
+    compare(6, '所得税费用 = 当期 + 递延所得税费用',
+            [n(inc, k) for k in ('income_tax', 'current_tax', 'deferred_tax')],
+            lambda a, b, c: a-b-c, '递延项仅含计入本期损益的部分')
+    items = (data.get('detail') or {}).get('line_items') or {}
+    if not items:
+        compare(7, '各小计 = 明细之和', [None], lambda a: a, '取得明细')
     else:
-        res.append(check(1, "资产 = 负债 + 所有者权益", True, "字段不全，跳过"))
-
-    # 2 净利润 ↔ 未分配利润变动
-    npf = n(inc, "net_profit")
-    upd, o_upd = n(b, "undistributed_profit"), n(b, "opening_undistributed_profit")
-    if None not in (npf, upd, o_upd):
-        diff = (upd - o_upd) - npf
-        res.append(check(2, "净利润 ↔ 未分配利润变动", abs(diff) <= TOL,
-                         f"未分配利润变动 {upd - o_upd:.2f}，净利润 {npf:.2f}，差额 {diff:.2f}",
-                         "差额应仅为利润分配、盈余公积提取或以前年度调整；否则检查结转"))
-    else:
-        res.append(check(2, "净利润 ↔ 未分配利润变动", True, "字段不全，跳过"))
-
-    # 3 现金净增加额 ↔ 货币资金变动
-    ni, oc, cc_ = n(cf, "net_increase"), n(cf, "opening_cash"), n(cf, "closing_cash")
-    cash = n(b, "cash")
-    if ni is not None and None not in (oc, cc_):
-        diff = (ni - (cc_ - oc))
-        ok = abs(diff) <= TOL
-        extra = ""
-        if cash is not None and abs(cc_ - cash) > TOL:
-            ok = False
-            extra = f"；期末现金 {cc_:.2f} 与资产负债表货币资金 {cash:.2f} 不符"
-        res.append(check(3, "现金净增加额 ↔ 货币资金变动", ok,
-                         f"净增加 {ni:.2f}，期初 {oc:.2f} → 期末 {cc_:.2f}，差额 {diff:.2f}{extra}",
-                         "核对受限资金口径与现金等价物定义"))
-    else:
-        res.append(check(3, "现金净增加额 ↔ 货币资金变动", True, "字段不全，跳过"))
-
-    # 4 现金流量表起点净利润 = 利润表净利润
-    cf_np = n(cf, "net_profit")
-    if cf_np is not None and npf is not None:
-        diff = cf_np - npf
-        res.append(check(4, "现金流表起点净利润 = 利润表净利润", abs(diff) <= TOL,
-                         f"现金流 {cf_np:.2f}，利润表 {npf:.2f}，差额 {diff:.2f}", "间接法起点取数错误"))
-    else:
-        res.append(check(4, "现金流表起点净利润 = 利润表净利润", True, "字段不全，跳过"))
-
-    # 5 折旧摊销（有则比对，无则提示手工核对）
-    da = n(cf, "depreciation_amortization")
-    if da is not None:
-        res.append(check(5, "折旧摊销与累计折旧/摊销发生额", True,
-                         f"表中折旧摊销 {da:.2f}；需与累计折旧/摊销本期贷方发生额（剔除处置转出）人工核对",
-                         ""))
-    else:
-        res.append(check(5, "折旧摊销与累计折旧/摊销发生额", True, "未提供，跳过"))
-
-    # 6 所得税 = 当期 + 递延
-    it, ct, dt = n(inc, "income_tax"), n(inc, "current_tax"), n(inc, "deferred_tax")
-    if None not in (it, ct, dt):
-        diff = it - (ct + dt)
-        res.append(check(6, "所得税费用 = 当期所得税 + 递延所得税", abs(diff) <= TOL,
-                         f"所得税费用 {it:.2f}，当期 {ct:.2f} + 递延 {dt:.2f}，差额 {diff:.2f}",
-                         "检查递延所得税资产/负债变动是否全部计入所得税费用"))
-    else:
-        res.append(check(6, "所得税费用 = 当期 + 递延", True, "字段不全，跳过"))
-
-    # 7 小计 = 明细之和
-    items = (data.get("detail") or {}).get("line_items") or {}
-    if items:
-        bad = []
-        for name, vals in items.items():
-            if not isinstance(vals, list) or len(vals) < 2:
-                continue
-            total = float(vals[0])
-            rest = sum(float(x) for x in vals[1:])
-            if abs(total - rest) > TOL:
-                bad.append(f"{name}: 小计 {total:.2f} ≠ 明细之和 {rest:.2f}")
-        res.append(check(7, "各小计 = 明细之和", not bad,
-                         "全部一致" if not bad else "；".join(bad), "逐栏核对明细列"))
-    else:
-        res.append(check(7, "各小计 = 明细之和", True, "未提供明细，跳过"))
-
-    # 8 本期期初 = 上期期末
-    o_ta = n(b, "opening_total_assets")
-    if o_ta is not None and ta is not None:
-        res.append(check(8, "本期期初 = 上期期末", True,
-                         f"本期期初资产 {o_ta:.2f}；需与上期已报资产负债表期末数人工比对", ""))
-    else:
-        res.append(check(8, "本期期初 = 上期期末", True, "未提供上期数，跳过"))
-
-    # 9 权益变动表 ↔ 资产负债表
-    ec = data.get("equity_change") or {}
-    ect, bte = n(ec, "closing_total"), n(ec, "balance_total_equity")
-    if None not in (ect, bte):
-        diff = ect - bte
-        res.append(check(9, "所有者权益变动表 = 资产负债表权益", abs(diff) <= TOL,
-                         f"变动表 {ect:.2f}，资产负债表 {bte:.2f}，差额 {diff:.2f}", "检查各栏合计"))
-    else:
-        res.append(check(9, "所有者权益变动表 = 资产负债表权益", True, "字段不全，跳过"))
-
-    failed = [x for x in res if x["status"] == "未通过"]
-    return {"period": data.get("period", ""), "total_checks": len(res),
-            "failed": len(failed), "conclusion": "全部通过" if not failed else f"{len(failed)} 项未通过，不得出分析结论",
-            "results": res}
+        differences = []
+        for key, values in items.items():
+            if not isinstance(values, list) or len(values) < 2:
+                raise ValueError(f'line_items.{key} 须包含小计和至少一项明细')
+            values = [number(v, f'line_items.{key}') for v in values]
+            differences.append(values[0]-sum(values[1:], ZERO))
+        compare(7, '各小计 = 明细之和', differences, lambda *v: max(abs(x) for x in v), '逐栏检查明细')
+    pairs = [(n(b, f'opening_{key}'), n(previous, key)) for key in
+             ('total_assets', 'total_liabilities', 'total_equity')]
+    compare(8, '本期期初 = 上期期末（资产/负债/权益）',
+            [v for pair in pairs for v in pair],
+            lambda *v: max(abs(v[i]-v[i+1]) for i in (0, 2, 4)), '取得上期已报资产负债表', manual=True)
+    compare(9, '权益变动表 = 资产负债表权益',
+            [n(ec, 'closing_total'), n(b, 'total_equity')], lambda a, b: a-b, '核对同一主体的权益表')
+    counts = {status: sum(x['status'] == status for x in res)
+              for status in ('通过', '未通过', '缺数据', '待人工复核')}
+    ready = counts['通过'] == 9
+    return {'period': data.get('period', ''), 'total_checks': 9,
+            'passed': counts['通过'], 'failed': counts['未通过'], 'missing': counts['缺数据'],
+            'pending_review': counts['待人工复核'],
+            'coverage': (counts['通过']+counts['未通过'])/9, 'ready_for_analysis': ready,
+            'conclusion': '全部通过' if ready else '校验未完成或未通过，不得发布正式分析结论', 'results': res}
 
 
-EXAMPLE = {
-    "period": "2026年度",
-    "balance": {"total_assets": 120000000, "total_liabilities": 68000000, "total_equity": 52000000,
-                "cash": 9000000, "opening_total_assets": 112000000,
-                "undistributed_profit": 22000000, "opening_undistributed_profit": 11800000},
-    "income": {"net_profit": 10200000, "income_tax": 3400000, "current_tax": 3200000, "deferred_tax": 200000},
-    "cashflow": {"net_increase": 1000000, "opening_cash": 8000000, "closing_cash": 9000000,
-                 "operating_cash_flow": 14800000, "net_profit": 10200000,
-                 "depreciation_amortization": 8000000},
-    "detail": {"line_items": {"流动资产合计": [56000000, 9000000, 18000000, 22000000, 7000000]}},
-    "equity_change": {"closing_total": 52000000, "balance_total_equity": 52000000},
-}
+def to_markdown(out):
+    lines = [f"# 勾稽校验 · {out['period']}", '', out['conclusion'],
+             f"通过 {out['passed']}/9；失败 {out['failed']}；缺数据 {out['missing']}；待复核 {out['pending_review']}", '',
+             '| # | 校验项 | 状态 | 差额 | 排查建议 |', '|---|---|---|---|---|']
+    lines += [f"| {x['no']} | {x['item']} | {x['status']} | {x['difference']} | {x['hint']} |" for x in out['results']]
+    return '\n'.join(lines)
 
 
 def main():
-    ap = argparse.ArgumentParser(description="报表九项勾稽校验")
-    ap.add_argument("-i", "--input")
-    ap.add_argument("--example", action="store_true")
-    ap.add_argument("--md", action="store_true")
-    ap.add_argument("-o", "--output")
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument('-i', '--input'); ap.add_argument('-o', '--output')
+    ap.add_argument('--example', action='store_true'); ap.add_argument('--md', action='store_true')
     a = ap.parse_args()
-
     if a.example:
-        print(json.dumps(EXAMPLE, ensure_ascii=False, indent=2))
-        return 0
+        from pathlib import Path
+        emit(read_json(Path(__file__).resolve().parents[1]/'assets/samples/reconcile_input_sample.json')); return 0
     if not a.input:
-        ap.print_help()
-        return 2
-
-    with open(a.input, "r", encoding="utf-8") as fh:
-        data = json.load(fh)
-    out = run(data)
-
-    if a.md:
-        L = [f"# 勾稽校验 · {out['period']}", "", f"结论：**{out['conclusion']}**", "",
-             "| # | 校验项 | 结果 | 说明 |", "|---|---|---|---|"]
-        for x in out["results"]:
-            L.append(f"| {x['no']} | {x['item']} | {x['status']} | {x['detail']} |")
-        bad = [x for x in out["results"] if x["status"] == "未通过"]
-        if bad:
-            L += ["", "## 排查建议", ""] + [f"- {x['item']}：{x['hint']}" for x in bad]
-        text = "\n".join(L)
-    else:
-        text = json.dumps(out, ensure_ascii=False, indent=2)
-
-    if a.output:
-        with open(a.output, "w", encoding="utf-8") as fh:
-            fh.write(text)
-        print(f"已写入 {a.output}")
-    else:
-        print(text)
-    return 0 if out["failed"] == 0 else 1
+        ap.error('需要 -i 输入文件')
+    out = run(read_json(a.input))
+    emit(out, a.output, to_markdown(out) if a.md else None)
+    return 0 if out['ready_for_analysis'] else (1 if out['failed'] else 2)
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+if __name__ == '__main__':
+    sys.exit(cli(main))

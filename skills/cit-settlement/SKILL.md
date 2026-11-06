@@ -1,7 +1,7 @@
 ---
 slug: business-fin-tax-cit-settlement
 displayName: 企业所得税汇算清缴
-version: 0.1.0
+version: 0.2.0
 summary: 从会计利润到应纳税所得额，逐项纳税调整、限额校验、亏损弥补与优惠适用。
 license: Apache-2.0
 name: business-fin-tax-cit-settlement
@@ -106,8 +106,11 @@ description: 企业所得税汇算清缴测算。输出会计利润调节表、�
 - [ ] 招待费按"孰低"取，不是只乘 60%
 - [ ] 广告费、教育经费超支正确结转，未一次性调增
 - [ ] 研发加计确认不在负面清单行业
-- [ ] 资产损失区分清单/专项申报
+- [ ] 资产损失申报及留存备查方式已按所属期有效文件核验
 - [ ] 股权激励的时间性差异建了台账
 - [ ] 亏损弥补核对年限，境外亏损未混入
 - [ ] 每个比例都标注"按 XX 年度口径，需核对当期文件"
 - [ ] 结论是"测算 + 风险"，不是"就这么报"
+## 汇算计算与结转台账
+
+调用 `scripts/tax_calc.py --part cit`；逐年有效余额用 `scripts/carryforward_ledger.py` 检查。过期、资格缺证、已用金额均单列；不得重复传台账和手工汇总。政策核验读 `references/policy-management.md`，字段见 `references/data-contract.md`。

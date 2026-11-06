@@ -1,0 +1,28 @@
+{
+  "version": "2026-11-06.1",
+  "description": "登记格式与试算参数示例；尚未进行官方原文核验，不能用于 review 模式放行。",
+  "policies": [
+    {
+      "id": "demo-tax-mechanism-2026",
+      "document_title": "虚构试算参数组合，非政策文件",
+      "document_number": null,
+      "article": null,
+      "official_url": null,
+      "effective_from": "2026-01-01",
+      "effective_to": "2026-12-31",
+      "reviewed_at": null,
+      "reviewer": null,
+      "evidence_sha256": null,
+      "verification_status": "unverified",
+      "applicability": {"region": ["*"], "industry": ["*"], "taxpayer_type": ["一般纳税人"]},
+      "required_qualifications": ["additional_deduction_eligible"],
+      "parameters": {
+        "vat": {"output_rate": "0.13", "simple_rate": "0.03"},
+        "surcharge": {"city_rate": "0.07", "edu_rate": "0.03", "local_edu_rate": "0.02", "reduction_ratio": "0"},
+        "export": {"levy_rate": "0.13", "refund_rate": "0.10"},
+        "super_deduction": {"ratio": "0.05"},
+        "cit": {"advertising_ratio": "0.15", "welfare_ratio": "0.14", "education_ratio": "0.08", "donation_ratio": "0.12", "entertainment_expense_ratio": "0.60", "entertainment_revenue_ratio": "0.005", "rd_super_ratio": "1", "tax_rate": "0.25"}
+      }
+    }
+  ]
+}

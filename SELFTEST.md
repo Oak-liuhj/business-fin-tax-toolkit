@@ -1,66 +1,45 @@
-# business-fin-tax · 自测记录
+# 0.2.0 实施与验证记录
 
-> 建立时间：2026-11-02。最近一次自测：2026-11-02。本文件记录每次自测的时间、环境、结果与遗留问题，作为交付证据。
+日期：2026-11-06。按“计算与校验—政策及追溯—月结工作流”的顺序实施。
 
-## 环境
+## 变更
 
-- 开发机：Windows。`pwsh` 在 DSH 沙箱内全部进程启动失败（`3221225794` / `0xC0000142`），本次自测改走批准通道执行。
-- 解释器：Python 3.13.17（系统 PATH 中的 `python`），控制台编码 `PYTHONIOENCODING=utf-8`。
-- WSL 未安装 Linux 发行版，`skillhub` CLI 无法在本机执行，发布需在 Mac/Linux/WSL 侧完成。
+- 九项勾稽分开统计通过/失败/缺数据/待人工复核；折旧与上期数实际比较，增加资金和利润桥接。
+- 共享Decimal输入/舍入/JSON协议；税费联动、亏损捐赠、零收入招待费、亏损使用上限、模型零分母、月/季度天数、平均余额及三因素预算分解修正。
+- CSV模板修正列错位、净调整合计及准备金差异分类；未核实的优惠不自动认定适用。
+- 政策登记、simulation/review门槛；示例政策均保持unverified。
+- CSV/TSV及可选XLSX导入、来源行和文件摘要、逐年结转台账。
+- 月结工作流保留原始输入快照；企业/账套/所属期核对、映射及现金流分类复核、试算/流水连续性检查后生成报表与分析；最终复核仍pending。
+- Excel导出器生成五页公式底稿，包含变动重算、缺证、独立比较、渲染与导出验证。
+- 八个子技能和根路由接入工具，区分CAS/IFRS与SOX、现金流主表与间接法补充资料，修正月结截止/最终锁账和资产摊销口径。
 
-## 真实执行记录（2026-11-02）
+## 验证环境与证据
 
-| 项目 | 命令 | 结果 |
-|---|---|---|
-| 语法检查 | `python -m py_compile scripts/*.py` | 5/5 通过 |
-| 内置示例 | `python scripts/<脚本>.py --example` | 5/5 `exit 0`，输出 JSON 结构完整 |
-| 样例端到端 | `python scripts/<脚本>.py -i assets/samples/<样例>.json` | 5/5 `exit 0` |
-| 勾稽校验 | `reconcile_check.py -i reconcile_input_sample.json` | `total_checks=9`、`failed=0`、`conclusion=全部通过` |
-| 财务比率 | `fin_ratios.py -i fin_data_sample.json` | 毛利率 0.2667，杜邦三/五因子正常输出 |
-| Z-Score | `zscore_eva.py -i zscore_eva_sample.json` | 版本判定 `private_1983`，X1 0.0875 与手算一致 |
-| 差异分解 | `variance_decompose.py -i variance_input_sample.json` | 预算 3,460,000 / 实际 3,132,600，量价结构分解正常 |
-| 税负测算 | `tax_calc.py -i tax_input_sample.json` | 销项 278,200、进项 204,000、应纳 74,200；应退 18,000（上限 120,000）；应纳税所得额 7,998,000 |
+核心环境：Windows，系统Python 3.15.0；全部核心测试不安装第三方依赖。Excel使用Codex发现的Node与@oai/artifact-tool。XLSX读取与标准技能frontmatter验证使用发现的可选运行时；其具体结果在本文件后续实测记录中列出。
 
-## 复现命令
+执行：`python -B -m unittest discover -s tests -v`。用例覆盖数字缺失/无效、精度、勾稽桥接、税费联动、结转到期、政策门槛、输入/模板及工作流。
 
-```bash
-cd scripts
-python fin_ratios.py         -i ../assets/samples/fin_data_sample.json      --md
-python zscore_eva.py         -i ../assets/samples/zscore_eva_sample.json    --md
-python variance_decompose.py -i ../assets/samples/variance_input_sample.json --md
-python reconcile_check.py    -i ../assets/samples/reconcile_input_sample.json --md   # 退出码 0 = 九项全通过
-python tax_calc.py           -i ../assets/samples/tax_input_sample.json     --md
-python -m compileall .
-```
+基准工作流资产213000、负债42000、权益171000、净利润21000、经营现金30000，九项实际比较通过。错误主体、前置复核未完成或源数据不平时阻止生成分析。
 
-Linux/macOS 下把 `python` 换成 `python3`。
+## 实际限制
 
-## 静态检查记录（2026-11-02）
+- 包内未对政策原文完成联网核验；review对示例应返回非零。
+- 自动编表限CAS、单体、CNY、损益未结转、末级科目及已分类银行流水；正式报送、合并、IFRS、内部划转、外币和复杂重分类需专项底稿。
+- Excel原生应用打开/重算不等同artifact-tool引擎验证；未运行原生Excel时不能宣称原生验收通过。
+- 旧科目余额表示例不平，被保留为异常用例；其他计算器样例互相独立。
+- 为保持既有SkillHub导入兼容，隐藏的CI配置留在本地，不纳入仓库；远端CI未运行。
+- DSH顶层元数据保留。标准Codex quick_validate对共享包会拒绝扩展字段，使用适配副本核验标准字段；不伪称共享包直接通过标准校验。
 
-| 检查项 | 方法 | 结果 |
-|---|---|---|
-| frontmatter 必填字段 | 逐个文件核对 slug / version / displayName / summary / description / name | 通过 |
-| 子技能 slug 唯一性 | 与根 slug 前缀区分 | 通过 |
-| references 交叉引用 | 检查 `skills/*/SKILL.md` 中引用的 references 文件均存在 | 通过 |
-| 样例数据与脚本入参一致 | 字段名逐个对照脚本 `--example` 输出 | 通过 |
-| 脚本仅用标准库 | import 仅有 argparse/json/sys | 通过 |
-| 算术一致性 | 科目余额表样例：资产 12000 万 = 负债 6800 万 + 权益 5200 万；利润表净利润 1020 万 | 通过 |
+## 0.1.0历史记录
 
-## 手算校验（与脚本结果对照）
+原版SELFTEST记录的“九项全部通过”包含跳过与待人工检查项，不代表0.2.0的九项实际比较。原记录可从Git历史读取；本文件以本轮可重复执行的测试作为当前验证依据。
 
-| 项目 | 手算 | 结果 |
-|---|---|---|
-| 勾稽第 2 项 | 未分配利润 1420 万 − 400 万 = 1020 万 = 净利润 | 通过（修正前样例为 600 万，与净利润不符，已改） |
-| 勾稽第 3、4、6、7、9 项 | 现金 800→900 万、净增加 100 万；所得税 235+5=240 万；流动资产明细 8 项合计 4950 万；权益 5200 万 | 通过 |
-| 增值税 | 销项 214 万 ×13% = 27.82 万；27.82 − 20.4 = 7.42 万 = 附加税基数 | 通过（修正前销项段与附加段口径不一致，已改） |
-| 加计抵减 | 20.4 万 ×5% = 1.02 万；7.42 − 1.02 = 6.40 万 | 通过 |
-| 出口免抵退 | 不得抵扣 = 120 万 ×(13%−10%) = 3.6 万；留抵 1.8 万；应退 = min(1.8, 12) = 1.8 万；免抵额 10.2 万 | 通过 |
-| 企业所得税 | 调增 24+24+28+48.8+15 = 139.8 万；1260 + 139.8 − 600 = 799.8 万；×25% = 199.95 万 | 通过（脚本输出应纳税所得额 7,998,000 一致） |
-| 预算收入 | 预算 346 万、实际 313.26 万，与弹性预算费用基数一致 | 通过 |
+## 最终实测记录（2026-11-06）
 
-## 遗留风险
-
-1. 脚本只在 Windows + Python 3.13 下用包内样例跑通；其他 Python 版本、其他输入（负值、缺字段、超长小数）尚未覆盖。
-2. 税率、扣除比例、加计抵减比例均为**机制说明**，实际使用必须核对当期有效文件；包内已多处以"待核当期文件"标注。
-3. CAS 与 IFRS 差异表为要点级，做正式 IFRS 报告仍需查阅准则原文。
-4. `skillhub publish --dry-run` 未执行：本机无 Linux 环境（WSL 无发行版）且未安装 CLI，需在 Mac/Linux/WSL 侧补跑。
+- Windows + Python 3.15.0：40项unittest全部通过。
+- Windows + Python 3.12.14（发现的运行时）：相同40项全部通过。
+- XLSX读回：正确读取科目余额表14条；多页未指定sheet时拒绝；公式保留，缓存值资产213000、净利润21000、经营现金30000与独立计算一致。
+- Codex官方quick_validate：共享DSH元数据按预期被标准校验器拒绝；将扩展字段移入metadata的临时适配副本9/9通过。共享SKILL.md保持DSH字段，不冒充原包直接通过。
+- 公式底稿：9项独立比较通过；银行收入增加1000时经营现金净额增加1000且现金勾稽变为失败；只填复核人而未填证据时仍待复核；恢复后导出。五页均已渲染检查。
+- 最终工作流：`outputs/release-0.2.0/`；运行编号 `3bcd030ebc081fbb1924`；状态ready_for_review，最终复核仍pending。资产213000、负债42000、权益171000、净利润21000、经营现金30000。
+- Linux、Python 3.11/3.13及原生Excel未实测；CI配置留在本地，未提交或远端运行。

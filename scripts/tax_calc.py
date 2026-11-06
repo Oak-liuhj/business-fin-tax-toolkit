@@ -1,300 +1,229 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""税费测算（纯标准库）：增值税、附加税费、出口免抵退、加计抵减、企业所得税限额与应纳税额。
-
-所有税率与比例来自入参（默认值为常见档位），**输出会原样回显所用参数**，
-便于核对是否与当期有效文件一致。本工具只做测算，不构成申报依据。
-
-用法:
-  python tax_calc.py --example
-  python tax_calc.py -i input.json [--md]
-"""
-
+"""Decimal 税费测算；默认情景试算，review 模式要求政策登记与适用性审核。"""
 import argparse
-import json
 import sys
-
-DEFAULT_VAT_RATES = {"goods": 0.13, "transport_build": 0.09, "service": 0.06, "export": 0.0}
-
-
-def f(v, d=0.0):
-    return float(v) if isinstance(v, (int, float)) else d
+from common import ZERO, cli, dumps, emit, field, money, number, read_json
 
 
-# ------------------------------------------------------------ 增值税
+def amount(d, key, default=0, required=False):
+    return field(d, key, default, required=required, minimum=0)
+
+
+def rate(d, key, default=None, required=False):
+    return field(d, key, default, required=required, minimum=0, maximum=1)
 
 
 def vat(d):
-    """d: output_tax 或 sales 与 rate；input_tax；transfers；simple；carryforward_credit"""
-    rate = f(d.get("output_rate"), 0.13)
-    if "output_tax" in d:
-        out_tax = f(d.get("output_tax"))
-        sales_ex = f(d.get("sales_excl_tax"))
-    else:
-        sales_ex = f(d.get("sales_excl_tax"))
-        out_tax = sales_ex * rate
-
-    in_tax = f(d.get("input_tax"))
-    transfer = f(d.get("input_transfer_out"))       # 不得抵扣/转出
-    carry = f(d.get("opening_credit"))              # 上期留抵
-    simple_sales = f(d.get("simple_sales_excl_tax"))
-    simple_rate = f(d.get("simple_rate"), 0.03)
-    surcharge_base_extra = f(d.get("consumption_tax"))
-
-    net_input = in_tax - transfer
-    general_payable = out_tax - net_input - carry
-    credit_carry = 0.0
-    if general_payable < 0:
-        credit_carry = -general_payable
-        general_payable = 0.0
-
-    simple_payable = simple_sales * simple_rate
-    total = general_payable + simple_payable
-    return {
-        "output_tax": round(out_tax, 2), "input_tax": round(in_tax, 2),
-        "input_transfer_out": round(transfer, 2), "net_input": round(net_input, 2),
-        "opening_credit": round(carry, 2),
-        "general_payable": round(general_payable, 2),
-        "closing_credit": round(credit_carry, 2),
-        "simple_payable": round(simple_payable, 2),
-        "total_payable": round(total, 2),
-        "vat_burden_rate": round(total / sales_ex, 4) if sales_ex else None,
-        "surcharge_base": round(total + surcharge_base_extra, 2),
-        "params_used": {"output_rate": rate, "simple_rate": simple_rate},
-        "note": "留抵不得抵减简易计税应纳税额；附加税费基数为实缴增值税+消费税。",
-    }
+    sales = amount(d, 'sales_excl_tax', None, required=True)
+    r = rate(d, 'output_rate', '0.13')
+    output = amount(d, 'output_tax') if 'output_tax' in d else money(sales*r)
+    inputs = amount(d, 'input_tax', None, required=True)
+    transfer, carry = (amount(d, k) for k in ('input_transfer_out', 'opening_credit'))
+    net = inputs-transfer
+    signed = output-net-carry
+    general, credit = max(signed, ZERO), max(-signed, ZERO)
+    simple_sales = amount(d, 'simple_sales_excl_tax')
+    simple_rate = rate(d, 'simple_rate', '0.03')
+    simple = money(simple_sales*simple_rate)
+    total = money(general+simple)
+    denominator = sales+simple_sales
+    return {'output_tax': money(output), 'input_tax': money(inputs), 'input_transfer_out': money(transfer),
+            'net_input': money(net), 'opening_credit': money(carry), 'general_payable': money(general),
+            'closing_credit': money(credit), 'simple_payable': simple, 'total_payable_before_deduction': total,
+            'total_payable': total, 'sales_total_excl_tax': money(denominator),
+            'vat_burden_rate': total/denominator if denominator else None,
+            'surcharge_base': total+amount(d, 'consumption_tax'),
+            'params_used': {'output_rate': r, 'simple_rate': simple_rate},
+            'note': '留抵不得抵减简易计税；实际缴纳与免抵额等附加税基桥接由 surcharge 模块单列。'}
 
 
 def surcharges(d):
-    base = f(d.get("base"))
-    rates = {"city": f(d.get("city_rate"), 0.07), "edu": f(d.get("edu_rate"), 0.03),
-             "local_edu": f(d.get("local_edu_rate"), 0.02)}
-    items = {k: round(base * v, 2) for k, v in rates.items()}
-    total = sum(items.values())
-    return {"base": round(base, 2), "items": items, "total": round(total, 2),
-            "params_used": {f"{k}_rate": v for k, v in rates.items()},
-            "note": "城建税税率按纳税人所在地 7%/5%/1% 分档，此处取入参或默认 7%。"}
-
-
-# ------------------------------------------------------------ 出口免抵退
+    base = amount(d, 'base', None, required=True)
+    rates = {k: rate(d, f'{k}_rate', v) for k, v in [('city', '0.07'), ('edu', '0.03'), ('local_edu', '0.02')]}
+    reduction = rate(d, 'reduction_ratio', 0)
+    items = {k: money(base*r*(1-reduction)) for k, r in rates.items()}
+    return {'base': money(base), 'items': items, 'total': sum(items.values(), ZERO),
+            'params_used': {**{f'{k}_rate': v for k, v in rates.items()}, 'reduction_ratio': reduction}}
 
 
 def export_refund(d):
-    """生产企业免抵退。出口额按人民币离岸价。"""
-    fob = f(d.get("fob_rmb"))
-    levy = f(d.get("levy_rate"), 0.13)
-    refund_rate = f(d.get("refund_rate"))            # 必填，来自当期退税率文库
-    dom_out = f(d.get("domestic_output_tax"))
-    in_tax = f(d.get("input_tax"))
-    carry = f(d.get("opening_credit"))
-
-    if "refund_rate" not in d:
-        return {"error": "缺少 refund_rate（退税率），须核对当期出口退税率文库后传入，拒绝默认取值"}
-
-    no_deduct = fob * (levy - refund_rate)
-    current_payable = dom_out - (in_tax - no_deduct) - carry
-    refund_cap = fob * refund_rate
-    closing_credit = max(0.0, -current_payable)
-    refund = min(closing_credit, refund_cap)
-    exempt_offset = refund_cap - refund
-    return {
-        "fob_rmb": round(fob, 2),
-        "non_deductible": round(no_deduct, 2),
-        "current_tax_payable": round(max(current_payable, 0.0), 2),
-        "closing_credit": round(closing_credit, 2),
-        "refund_cap": round(refund_cap, 2),
-        "refund": round(refund, 2),
-        "exempt_offset": round(exempt_offset, 2),
-        "params_used": {"levy_rate": levy, "refund_rate": refund_rate},
-        "note": "退税率须核对当期文库；申报有期限，逾期视同内销征税。",
-    }
-
-
-# ------------------------------------------------------------ 加计抵减
+    fob = amount(d, 'fob_rmb', None, required=True)
+    levy = rate(d, 'levy_rate', '0.13')
+    refund_rate = rate(d, 'refund_rate', required=True)
+    if refund_rate > levy:
+        raise ValueError('refund_rate 不得大于 levy_rate；特殊口径需独立规则')
+    # Net of tax-exempt imported materials must be explicitly supplied when applicable.
+    exempt_materials = amount(d, 'exempt_materials')
+    if exempt_materials > fob:
+        raise ValueError('exempt_materials 不得超过出口额')
+    net_fob = fob-exempt_materials
+    no_deduct = money(net_fob*(levy-refund_rate))
+    signed = amount(d, 'domestic_output_tax')-(amount(d, 'input_tax')-no_deduct)-amount(d, 'opening_credit')
+    cap, credit = money(net_fob*refund_rate), money(max(-signed, ZERO))
+    refund = min(credit, cap)
+    return {'fob_rmb': money(fob), 'non_deductible': no_deduct,
+            'current_tax_payable': money(max(signed, ZERO)), 'closing_credit': credit,
+            'refund_cap': cap, 'refund': refund, 'exempt_offset': cap-refund,
+            'credit_after_refund': credit-refund,
+            'params_used': {'levy_rate': levy, 'refund_rate': refund_rate},
+            'note': '仅生产企业简化免抵退测算；申报期限与单证条件须按所属期有效文件核验。'}
 
 
 def super_deduction(d, vat_payable):
-    ratio = d.get("ratio")
-    if ratio is None:
-        return {"error": "缺少 ratio（加计抵减比例），须核对当期政策文件确认比例与有效期",
-                "hint": "可传 ratio 试算，并在输出中标注为假设"}
-    ratio = float(ratio)
-    cur_input = f(d.get("current_deductible_input"))
-    opening_bal = f(d.get("opening_balance"))
-    decrease = f(d.get("current_decrease"))
-    accrued = cur_input * ratio
-    available = opening_bal + accrued - decrease
-    used = min(max(vat_payable, 0.0), available)
-    return {
-        "ratio": ratio, "accrued": round(accrued, 2), "available": round(available, 2),
-        "used": round(used, 2), "remaining_balance": round(available - used, 2),
-        "payable_after": round(max(vat_payable - used, 0.0), 2),
-        "note": "加计抵减只抵减一般计税应纳税额，不改变进项税额本身，需单独核算。",
-    }
-
-
-# ------------------------------------------------------------ 企业所得税
+    ratio = rate(d, 'ratio', required=True)
+    accrued = money(amount(d, 'current_deductible_input')*ratio)
+    available = amount(d, 'opening_balance')+accrued-amount(d, 'current_decrease')
+    if available < 0:
+        raise ValueError('加计抵减调减额超过余额与本期计提，需复核并另行处理补税，不生成负抵减额')
+    used = min(max(number(vat_payable), ZERO), available)
+    return {'ratio': ratio, 'accrued': accrued, 'available': money(available), 'used': money(used),
+            'remaining_balance': money(available-used), 'payable_after': money(max(number(vat_payable)-used, ZERO)),
+            'note': '仅抵减一般计税应纳额；资格、政策有效期与比例需审核。'}
 
 
 def cit(d):
-    profit = f(d.get("accounting_profit"))
-    revenue = f(d.get("revenue"))
-    salary = f(d.get("salary_total"))
-
-    ent = f(d.get("entertainment_expense"))
-    ent_limit = min(ent * 0.6, revenue * 0.005) if revenue else ent * 0.6
-    ent_add = max(0.0, ent - ent_limit)
-
-    ad = f(d.get("advertising_expense"))
-    ad_ratio = f(d.get("advertising_ratio"), 0.15)
-    ad_limit = revenue * ad_ratio
-    ad_add = max(0.0, ad - ad_limit)
-    ad_carry = ad_add  # 结转以后年度
-
-    wel = f(d.get("welfare_expense"))
-    wel_limit = salary * 0.14
-    wel_add = max(0.0, wel - wel_limit)
-
-    edu = f(d.get("education_expense"))
-    edu_limit = salary * 0.08
-    edu_add = max(0.0, edu - edu_limit)
-    edu_carry = edu_add
-
-    don = f(d.get("donation"))
-    don_limit = profit * 0.12
-    don_add = max(0.0, don - don_limit)
-
-    rd = f(d.get("rd_expense"))
-    rd_ratio = f(d.get("rd_super_ratio"), 1.0)
-    rd_deduction = rd * rd_ratio
-
-    other_add = f(d.get("other_add"))       # 滞纳金、罚款、准备金等
-    other_less = f(d.get("other_less"))     # 国债利息、股息等
-    loss_cf = f(d.get("loss_carryforward"))
-    rate = f(d.get("tax_rate"), 0.25)
-
-    adds = ent_add + ad_add + wel_add + edu_add + don_add + other_add
-    taxable = profit + adds - other_less - rd_deduction - loss_cf
-    taxable = max(taxable, 0.0)
-    tax = taxable * rate
-
-    return {
-        "accounting_profit": round(profit, 2),
-        "limits": {
-            "entertainment": {"actual": ent, "limit": round(ent_limit, 2), "add_back": round(ent_add, 2)},
-            "advertising": {"actual": ad, "limit": round(ad_limit, 2), "add_back": round(ad_add, 2),
-                            "carryforward": round(ad_carry, 2)},
-            "welfare": {"actual": wel, "limit": round(wel_limit, 2), "add_back": round(wel_add, 2)},
-            "education": {"actual": edu, "limit": round(edu_limit, 2), "add_back": round(edu_add, 2),
-                          "carryforward": round(edu_carry, 2)},
-            "donation": {"actual": don, "limit": round(don_limit, 2), "add_back": round(don_add, 2)},
-        },
-        "rd_super_deduction": round(rd_deduction, 2),
-        "total_add_back": round(adds, 2),
-        "taxable_income": round(taxable, 2),
-        "tax_rate": rate,
-        "tax_payable": round(tax, 2),
-        "effective_rate": round(tax / profit, 4) if profit else None,
-        "params_used": {"advertising_ratio": ad_ratio, "rd_super_ratio": rd_ratio, "tax_rate": rate},
-        "caveats": [
-            "招待费取『发生额60%』与『收入5‰』孰低，超支为永久性差异。",
-            "广告费、职工教育经费超支可结转以后年度，勿一次性永久调增。",
-            "研发加计比例与技术先进型等优惠须核对当期文件，且确认不在负面清单行业。",
-            "本测算不含递延所得税与会计-税务时间性差异台账。",
-        ],
-    }
+    ledger_summary = None
+    if 'carryforward_ledger' in d:
+        from carryforward_ledger import summarize
+        year = d.get('tax_year')
+        ledger_summary = summarize(d['carryforward_ledger'], year)
+        if ledger_summary['pending']:
+            raise ValueError('跨年台账含待核实余额，先复核资格与证据')
+        if 'loss_carryforward' in d or 'prior_carryforwards' in d:
+            raise ValueError('使用逐年台账时不得同时传入手工结转汇总，避免重复扣除')
+        d = dict(d)
+        balances = ledger_summary['eligible_balances']
+        d['loss_carryforward'] = balances.get('loss', ZERO)
+        d['prior_carryforwards'] = {k: balances.get(k, ZERO) for k in ('advertising', 'education', 'donation')}
+    profit = field(d, 'accounting_profit', required=True)
+    revenue = amount(d, 'revenue', None, required=True)
+    salary = amount(d, 'salary_total')
+    ent = amount(d, 'entertainment_expense')
+    ad, wel, edu, don = (amount(d, k) for k in ('advertising_expense', 'welfare_expense', 'education_expense', 'donation'))
+    if (wel or edu) and ('salary_total' not in d or d['salary_total'] is None):
+        raise ValueError('计算福利/教育经费限额必须提供 salary_total，不能将缺失视为零')
+    ratios = {'advertising_ratio': rate(d, 'advertising_ratio', '0.15'),
+              'welfare_ratio': rate(d, 'welfare_ratio', '0.14'),
+              'education_ratio': rate(d, 'education_ratio', '0.08'),
+              'donation_ratio': rate(d, 'donation_ratio', '0.12'),
+              'entertainment_expense_ratio': rate(d, 'entertainment_expense_ratio', '0.60'),
+              'entertainment_revenue_ratio': rate(d, 'entertainment_revenue_ratio', '0.005'),
+              'rd_super_ratio': field(d, 'rd_super_ratio', 1, minimum=0, maximum=3),
+              'tax_rate': rate(d, 'tax_rate', '0.25')}
+    bases = [('entertainment', ent, min(ent*ratios['entertainment_expense_ratio'], revenue*ratios['entertainment_revenue_ratio']), False),
+             ('advertising', ad, revenue*ratios['advertising_ratio'], True),
+             ('welfare', wel, salary*ratios['welfare_ratio'], False),
+             ('education', edu, salary*ratios['education_ratio'], True),
+             ('donation', don, max(profit, ZERO)*ratios['donation_ratio'], True)]
+    limits = {}
+    prior_cf = d.get('prior_carryforwards') or {}
+    for name, actual, limit, can_carry in bases:
+        limit = money(limit)
+        allowed, added = min(actual, limit), max(actual-limit, ZERO)
+        item = {'actual': money(actual), 'limit': limit, 'deductible_current': money(allowed), 'add_back': money(added)}
+        if can_carry:
+            opening = amount(prior_cf, name)
+            used = min(opening, max(limit-actual, ZERO))
+            item.update(opening_carryforward=money(opening), used_prior=money(used),
+                        carryforward=money(opening-used+added))
+        limits[name] = item
+    rd = money(amount(d, 'rd_expense')*ratios['rd_super_ratio'])
+    adds = sum((x['add_back'] for x in limits.values()), ZERO)+amount(d, 'other_add')
+    prior_used = sum((x.get('used_prior', ZERO) for x in limits.values()), ZERO)
+    before_loss = profit+adds-amount(d, 'other_less')-rd-prior_used
+    loss_opening = amount(d, 'loss_carryforward')
+    loss_used = min(loss_opening, max(before_loss, ZERO))
+    taxable = money(max(before_loss-loss_used, ZERO))
+    tax = money(taxable*ratios['tax_rate'])
+    return {'accounting_profit': money(profit), 'limits': limits, 'rd_super_deduction': rd,
+            'carryforward_ledger': ledger_summary,
+            'total_add_back': money(adds), 'prior_carryforward_deduction': money(prior_used),
+            'taxable_before_loss': money(before_loss), 'loss_used': money(loss_used),
+            'loss_remaining': money(loss_opening-loss_used), 'new_tax_loss': money(max(-before_loss, ZERO)),
+            'taxable_income': taxable, 'tax_rate': ratios['tax_rate'], 'tax_payable': tax,
+            'effective_rate': tax/profit if profit > 0 else None, 'params_used': ratios,
+            'parameter_sources': {k: 'input' if k in d else 'simulation_default' for k in ratios},
+            'caveats': ['结转余额必须由逐年台账排除失效与不适用金额后提供。',
+                        '研发资格、小微分段优惠、境外抵免、递延所得税须使用专项底稿，本脚本不自动判定。']}
 
 
-EXAMPLE = {
-    "unit": "元", "period": "2026年度",
-    "vat": {"sales_excl_tax": 10000000, "output_rate": 0.13,
-            "input_tax": 900000, "input_transfer_out": 50000, "opening_credit": 20000,
-            "simple_sales_excl_tax": 500000, "simple_rate": 0.03},
-    "surcharge": {"base": 400000, "city_rate": 0.07, "edu_rate": 0.03, "local_edu_rate": 0.02},
-    "export": {"fob_rmb": 5000000, "levy_rate": 0.13, "refund_rate": 0.10,
-               "domestic_output_tax": 800000, "input_tax": 600000, "opening_credit": 0},
-    "super_deduction": {"ratio": 0.05, "current_deductible_input": 900000,
-                        "opening_balance": 10000, "current_decrease": 0},
-    "cit": {"accounting_profit": 13600000, "revenue": 180000000, "salary_total": 24000000,
-            "entertainment_expense": 600000, "advertising_expense": 20000000,
-            "welfare_expense": 3600000, "education_expense": 2200000,
-            "donation": 2000000, "rd_expense": 6000000, "rd_super_ratio": 1.0,
-            "other_add": 150000, "other_less": 80000, "loss_carryforward": 0, "tax_rate": 0.25},
-}
+def calculate(data, part='all'):
+    if not isinstance(data, dict):
+        raise ValueError('输入必须为对象')
+    if data.get('unit', '元') != '元':
+        raise ValueError('税费计算金额统一为元，请先按原始单位标准化，避免分位舍入错误')
+    out = {'schema_version': '0.2.0', 'period': data.get('period'), 'unit': data.get('unit', '元')}
+    selected = [k for k in ('vat', 'surcharge', 'export', 'cit') if k in data and (part == 'all' or part == k)]
+    if not selected:
+        raise ValueError(f'未提供 {part} 对应数据，拒绝按空数据算零')
+    if 'vat' in selected:
+        out['vat'] = vat(data['vat'])
+        if data.get('super_deduction') is not None:
+            sd = super_deduction(data['super_deduction'], out['vat']['general_payable'])
+            out['super_deduction'] = sd
+            v = out['vat']
+            v['general_payable_after_deduction'] = sd['payable_after']
+            v['total_payable'] = money(sd['payable_after']+v['simple_payable'])
+            denominator = v['sales_total_excl_tax']
+            v['vat_burden_rate'] = v['total_payable']/denominator if denominator else None
+            v['surcharge_base'] = v['total_payable']+amount(data['vat'], 'consumption_tax')
+    if 'export' in selected:
+        out['export'] = export_refund(data['export'])
+    if 'surcharge' in selected:
+        s = dict(data['surcharge'])
+        adjustments = s.get('adjustments') or {}
+        adjustment = sum((field(adjustments, k, required=True) for k in adjustments), ZERO)
+        if 'vat' in out:
+            computed = out['vat']['surcharge_base']+adjustment
+            source = '抵减后增值税 + 消费税 + 已列明税基调整'
+            previous_base = s.get('base')
+            s['base'] = computed
+        else:
+            previous_base = None
+            if adjustment:
+                s['base'] = amount(s, 'base', None, required=True)+adjustment
+            source = '独立输入税基；未关联增值税模块'
+        out['surcharge'] = surcharges(s)
+        out['surcharge'].update(base_source=source, adjustments=adjustments)
+        if previous_base is not None and number(previous_base) != number(s['base']):
+            out['surcharge']['input_base_difference'] = number(previous_base)-number(s['base'])
+    if 'cit' in selected:
+        out['cit'] = cit(data['cit'])
+    return out
+
+
+def to_markdown(out):
+    lines = ['# 税费测算', '', f"模式：{out.get('mode', 'simulation')}；政策：{out.get('policy_validation', {}).get('status', '未核验')}", '']
+    for section in ('vat', 'super_deduction', 'surcharge', 'export', 'cit', 'policy_validation', 'provenance'):
+        if section in out:
+            lines += [f'## {section}', '', '```json', dumps(out[section]), '```', '']
+    return '\n'.join(lines)
 
 
 def main():
-    ap = argparse.ArgumentParser(description="税费测算")
-    ap.add_argument("-i", "--input")
-    ap.add_argument("--example", action="store_true")
-    ap.add_argument("--part", choices=["all", "vat", "surcharge", "export", "cit"], default="all")
-    ap.add_argument("--md", action="store_true")
-    ap.add_argument("-o", "--output")
+    from pathlib import Path
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument('-i', '--input'); ap.add_argument('-o', '--output')
+    ap.add_argument('--example', action='store_true'); ap.add_argument('--md', action='store_true')
+    ap.add_argument('--part', choices=['all', 'vat', 'surcharge', 'export', 'cit'], default='all')
+    ap.add_argument('--mode', choices=['simulation', 'review'], default='simulation')
+    ap.add_argument('--registry', default=str(Path(__file__).resolve().parents[1]/'references/policy-registry.json'))
     a = ap.parse_args()
-
     if a.example:
-        print(json.dumps(EXAMPLE, ensure_ascii=False, indent=2))
-        return 0
+        emit(read_json(Path(__file__).resolve().parents[1]/'assets/samples/tax_input_sample.json')); return 0
     if not a.input:
-        ap.print_help()
-        return 2
-
-    with open(a.input, "r", encoding="utf-8") as fh:
-        data = json.load(fh)
-
-    out = {}
-    if a.part in ("all", "vat"):
-        out["vat"] = vat(data.get("vat") or {})
-    if a.part in ("all", "surcharge"):
-        out["surcharge"] = surcharges(data.get("surcharge") or {})
-    if a.part in ("all", "export"):
-        out["export"] = export_refund(data.get("export") or {})
-    if a.part in ("all", "cit"):
-        vat_payable = (out.get("vat") or {}).get("general_payable") or 0.0
-        sd = data.get("super_deduction")
-        if sd:
-            out["super_deduction"] = super_deduction(sd, vat_payable)
-        out["cit"] = cit(data.get("cit") or {})
-
-    if a.md:
-        L = ["# 税费测算结果", ""]
-        v = out.get("vat")
-        if v:
-            L += ["## 增值税", "", f"- 销项 {v['output_tax']} / 进项 {v['input_tax']} / 转出 {v['input_transfer_out']}",
-                  f"- 一般计税应纳 {v['general_payable']}，期末留抵 {v['closing_credit']}",
-                  f"- 简易计税应纳 {v['simple_payable']}", f"- 合计应纳 {v['total_payable']}",
-                  f"- 税负率 {v['vat_burden_rate']}", f"- 附加税费基数 {v['surcharge_base']}", ""]
-        s = out.get("surcharge")
-        if s:
-            L += ["## 附加税费", "", f"- 基数 {s['base']}，合计 {s['total']}",
-                  f"- 明细 {s['items']}", ""]
-        e = out.get("export")
-        if e:
-            if "error" in e:
-                L += ["## 出口退税", "", f"- 无法计算：{e['error']}", ""]
-            else:
-                L += ["## 出口退税（免抵退）", "", f"- 不得免征和抵扣 {e['non_deductible']}",
-                      f"- 当期应纳 {e['current_tax_payable']}，期末留抵 {e['closing_credit']}",
-                      f"- 免抵退税额 {e['refund_cap']}，应退 {e['refund']}，免抵 {e['exempt_offset']}", ""]
-        c = out.get("cit")
-        if c:
-            L += ["## 企业所得税", "", f"- 会计利润 {c['accounting_profit']}",
-                  f"- 调增合计 {c['total_add_back']}", f"- 研发加计 {c['rd_super_deduction']}",
-                  f"- 应纳税所得额 {c['taxable_income']}", f"- 税率 {c['tax_rate']}，应纳税额 {c['tax_payable']}",
-                  "", "注意："]
-            L += [f"- {x}" for x in c["caveats"]]
-        text = "\n".join(L)
-    else:
-        text = json.dumps(out, ensure_ascii=False, indent=2)
-
-    if a.output:
-        with open(a.output, "w", encoding="utf-8") as fh:
-            fh.write(text)
-        print(f"已写入 {a.output}")
-    else:
-        print(text)
-    return 0
+        ap.error('需要 -i 输入文件')
+    data = read_json(a.input)
+    out = calculate(data, a.part)
+    from policy_registry import validate_tax
+    out['mode'] = a.mode
+    out['policy_validation'] = validate_tax(data, out, read_json(a.registry))
+    from data_ingest import source_info
+    from common import VERSION
+    out['provenance'] = {'input': source_info(a.input), 'policy_registry': source_info(a.registry), 'engine_version': VERSION}
+    emit(out, a.output, to_markdown(out) if a.md else None)
+    return 2 if a.mode == 'review' and out['policy_validation']['status'] != 'verified' else 0
 
 
-if __name__ == "__main__":
-    sys.exit(main())
+if __name__ == '__main__':
+    sys.exit(cli(main))

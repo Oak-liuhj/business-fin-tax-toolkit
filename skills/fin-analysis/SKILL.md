@@ -1,7 +1,7 @@
 ---
 slug: business-fin-tax-fin-analysis
 displayName: 财务分析诊断
-version: 0.1.0
+version: 0.2.0
 summary: 上传报表输出杜邦分析、偿债、运营、盈利、现金流、Z-Score、EVA 全面诊断。
 license: Apache-2.0
 name: business-fin-tax-fin-analysis
@@ -140,3 +140,6 @@ Rf、β、ERP、Rd、D/E 五项参数逐项列出取值与来源。**任一缺�
 - [ ] EVA 参数全部有来源，否则标"无法计算"
 - [ ] 结论都能指回具体数字
 - [ ] 没有把行业特性当问题（如零售低毛利、重资产高杠杆）
+## 财务分析计算入口
+
+`scripts/fin_ratios.py`、`scripts/zscore_eva.py`；月结数据优先用 `scripts/close_workflow.py`。月/季必须提供 period_days，缺期初不以期末替代；年化结果单列。缺项可出带缺口的计算草稿，不得宣称完整诊断。

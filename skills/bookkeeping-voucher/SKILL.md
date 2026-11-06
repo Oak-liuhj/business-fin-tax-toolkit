@@ -1,7 +1,7 @@
 ---
 slug: business-fin-tax-bookkeeping-voucher
 displayName: 记账凭证编制
-version: 0.1.0
+version: 0.2.0
 summary: 按业务单据生成规范会计分录，覆盖采购、费用、薪酬、收入、税费、外币、研发、制造业成本与年末结转。
 license: Apache-2.0
 name: business-fin-tax-bookkeeping-voucher
@@ -107,3 +107,6 @@ description: 根据业务描述或单据（发票、合同、回单、工资表�
 - [ ] 资本化有证据链，否则已费用化并提示
 - [ ] 外币三要素（原币、汇率、本位币）齐全
 - [ ] 缺失信息已列出，没有暗中假设
+## 凭证交付边界
+
+先用 `scripts/data_ingest.py --profile bank` 检查流水与来源；凭证模板按企业ERP字段适配。银行收付款本身不证明收入/费用确认条件。输出仅为待复核凭证，须逐笔检查重复、期间、借贷平衡、辅助核算、附件与原始行；本包未实现ERP过账或自动去重。

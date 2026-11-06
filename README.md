@@ -1,129 +1,100 @@
-# 企业财税专家包 · business-fin-tax
+# 企业财税专家套件 · business-fin-tax
 
-面向企业财务与税务日常工作的技能包，覆盖八大场景，适配会计、财务经理、税务经理、审计经理四类角色。
+面向会计、财务经理、税务经理与审计经理的技能包。提供八类任务手册、知识参考、计算脚本和可执行月结底稿流程。
 
-## 包含什么
+版本 **0.2.0**：修复计算/校验缺陷，增加政策登记、来源追溯、跨年台账与“月结—报表—分析”工作流。Python 核心仅使用标准库，支持 Python 3.11+。
 
-| 命令别名 | 子技能 | 能力 |
+## 八类场景
+
+| 触发别名 | 子技能 | 当前能力 |
 |---|---|---|
-| `/财务分析` | `skills/fin-analysis` | 杜邦、偿债、运营、盈利、现金流、Z-Score、EVA 全面诊断 |
-| `/做凭证` | `skills/bookkeeping-voucher` | 银行流水/费用单据 → CAS 记账凭证（含外币、研发、年末结转） |
-| `/预算分析` | `skills/budget-variance` | 量价结构差异分解、弹性预算、标准成本差异 |
-| `/增值税管理` | `skills/vat-management` | 税负测算、进销项匹配、出口退税、加计抵减、申报底稿 |
-| `/汇算清缴` | `skills/cit-settlement` | 纳税调整、扣除限额校验、股权激励/资产损失/境外所得 |
-| `/内部审计` | `skills/internal-audit` | 审计程序、工作底稿、数据分析审计、SOX/IFRS 适配 |
-| `/财务报表编制` | `skills/statement-prep` | CAS 三表编制、期间对比、勾稽验证、合并、附注框架 |
-| `/月结检查清单` | `skills/month-end-close` | 10 步关账、进度追踪、制造业成本核算、年度关账 |
-| （内部参考） | `references/entry-templates.md` | 标准分录模板库与编制规范 |
+| `/财务分析` | fin-analysis | 财务比率、杜邦、Z-Score、EVA；期间口径与缺项显式输出 |
+| `/做凭证` | bookkeeping-voucher | 分录指引及待复核CSV模板，支持来源与附件整理 |
+| `/预算分析` | budget-variance | 收入纯量差/价差/结构差、弹性预算、成本活动量/效率差异 |
+| `/增值税管理` | vat-management | 一般/简易计税、加计抵减、附加联动、简化出口退税试算 |
+| `/汇算清缴` | cit-settlement | 扣除限额、亏损弥补、结转余额与调整底稿 |
+| `/内部审计` | internal-audit | 审计程序、发现结构、内控与数据异常检查指引 |
+| `/财务报表编制` | statement-prep | 受限范围内的CAS单体报表草稿与九项实际比较 |
+| `/月结检查清单` | month-end-close | 数据导入、试算、报表、勾稽、分析与待复核状态 |
 
-知识底座：`references/cas-basics.md`、`statement-mapping.md`、`vat-rules.md`、`cit-limits.md`、`audit-programs-sox.md`。
+上述别名为自然语言触发词，不是DSH原生斜杠命令。能力成熟度及适用范围见 [工作流说明](references/workflow-contract.md)。
 
-工具：`scripts/` 下 5 个 Python 脚本（仅标准库，无需安装依赖）：
+## 快速运行
 
-| 脚本 | 作用 |
-|---|---|
-| `fin_ratios.py` | 盈利/偿债/运营/现金流比率 + 杜邦三因子与五因子 |
-| `zscore_eva.py` | Altman Z-Score（三版本可选）+ EVA（CAPM 或直接给 WACC） |
-| `variance_decompose.py` | 收入量价结构三因素、成本价量差异、费用弹性预算 |
-| `reconcile_check.py` | 报表九项勾稽校验，未通过返回非零退出码 |
-| `tax_calc.py` | 增值税、附加税费、出口免抵退、加计抵减、企业所得税限额与应纳税额 |
+在本项目目录执行，输出目录使用新名称：
 
-样例数据在 `assets/samples/`，输出模板在 `assets/templates/`，自测记录见 `SELFTEST.md`。
-
-## 目录结构
-
-```
-business-fin-tax-toolkit/
-├── SKILL.md                     # 主入口：角色路由、命令别名表、五步流程、三条红线
-├── README.md
-├── SELFTEST.md                  # 自测记录与待执行命令
-├── LICENSE.md                   # Apache-2.0
-├── references/                  # 知识底座（6 份）
-│   ├── cas-basics.md            # CAS 准则口径
-│   ├── entry-templates.md       # 标准分录模板库（凭证参考）
-│   ├── statement-mapping.md     # 科目 → 报表行映射
-│   ├── vat-rules.md             # 增值税规则与风险指标
-│   ├── cit-limits.md            # 企税扣除限额与优惠
-│   └── audit-programs-sox.md    # 六大循环审计程序 + SOX 404
-├── skills/                      # 子技能（8 个，统一四段式）
-│   ├── fin-analysis/SKILL.md
-│   ├── bookkeeping-voucher/SKILL.md
-│   ├── budget-variance/SKILL.md
-│   ├── vat-management/SKILL.md
-│   ├── cit-settlement/SKILL.md
-│   ├── internal-audit/SKILL.md
-│   ├── statement-prep/SKILL.md
-│   └── month-end-close/SKILL.md
-├── scripts/                     # 5 个脚本，仅标准库
-│   ├── fin_ratios.py
-│   ├── zscore_eva.py
-│   ├── variance_decompose.py
-│   ├── reconcile_check.py
-│   └── tax_calc.py
-└── assets/
-    ├── samples/                 # 9 份虚构样例
-    └── templates/               # 6 份输出模板
+```powershell
+python -B scripts/close_workflow.py -i assets/samples/month_close/workflow.json -o outputs/my-month-close
 ```
 
-## 安装
+样例全部虚构。自动验证预期：资产213,000元、负债42,000元、权益171,000元、净利润21,000元、经营现金净额30,000元，九项比较通过，状态 `ready_for_review`。最终复核仍待完成，不代表ERP已锁账。
 
-把本目录放到 Agent 的 skills 目录：
+真实使用时复制 `assets/samples/month_close/`，替换余额表、带现金流分类的银行流水、上期数据与辅助底稿，设置企业和账套标识，并记录当前科目映射与流水文件的复核证据/SHA256。详细字段见 [数据接口](references/data-contract.md)。
 
-```bash
-cp -r business-fin-tax ~/.dsh/skills/
+## 计算及校验
+
+```powershell
+python -B scripts/fin_ratios.py -i assets/samples/fin_data_sample.json --md
+python -B scripts/zscore_eva.py -i assets/samples/zscore_eva_sample.json --md
+python -B scripts/variance_decompose.py -i assets/samples/variance_input_sample.json --md
+python -B scripts/reconcile_check.py -i assets/samples/reconcile_input_sample.json --md
+python -B scripts/tax_calc.py -i assets/samples/tax_input_sample.json --mode simulation --md
+python -B scripts/carryforward_ledger.py -i assets/samples/carryforward_ledger_sample.json --year 2026
 ```
 
-各 Agent 的 skills 目录不同，按实际环境放置；DSH 下重启会话或新开会话即可识别。
+税费示例中的增值税74,200元经加计抵减10,200元后为64,000元，联动附加税基64,000元、示例附加7,680元；企税应纳税所得额7,998,000元。出口部分是独立情景，不自动并入同一税基。
 
-## 使用
+### 结果约定
 
-直接用自然语言说，或打命令别名：
+- 金额使用 Decimal，分按 ROUND_HALF_UP；JSON中的十进制金额为字符串，保留精度。比率为数字或十进制字符串，调用方应按字段含义解析。
+- 缺失、零、失败与待人工复核不同；空数据不会判定为通过。勾稽 exit 0=九项全部通过，exit 1=有实际失败，exit 2=缺数据/待复核/非法输入。
+- 月/季分析显式传 period_days；平均余额缺期初时不以期末代替。年化结果单列，不将月度EBITDA直接用于年度债务倍数。
+- 五个原计算脚本仍支持 `--example`、`-i`、`--md`、`-o`。`--example` 输出输入样例，不等于执行计算。
 
+## 政策登记
+
+[policy-registry.json](references/policy-registry.json) 是**未核验示例**。税费脚本默认 simulation，输出试算与政策缺口；review 模式要求本地登记中的人工核验、官方来源、条款、有效期、适用条件、资格证据和实际参数匹配：
+
+```powershell
+python -B scripts/tax_calc.py -i 企业税费.json --mode review --registry 企业政策登记.json
 ```
-/财务分析 我上传了资产负债表和利润表
-/做凭证 这是本月的银行流水
-/预算分析 预算和实际都在这个表里
-/增值税管理 这是进销项明细
-/汇算清缴 这是科目余额表
-/内部审计 范围是采购到付款流程
-/财务报表编制 科目余额表在附件
-/月结检查清单 制造业，本月要出合并报表
+
+未核验时 exit 2，仍保留底稿与问题。程序不联网确认法规、不认证复核人身份，也不进行申报。登记流程见 [政策管理](references/policy-management.md)。
+
+## 导入和追溯
+
+```powershell
+python -B scripts/data_ingest.py -i assets/samples/科目余额表_sample.csv --profile trial_balance --unit 元 -o normalized.json
 ```
 
-**说明**：上述 `/xxx` 是技能触发别名，不是 DSH 原生斜杠命令。写成自然语言效果相同。
+支持CSV/TSV、表头定位、两层借贷表头、千分位/括号负数、万元换算、重复/越期/币种检查；每格保留文件SHA256、工作表、行号、原始值和标准化说明。XLSX读取为可选功能：`python -m pip install -r requirements-optional.txt`，多页文件必须指定 `--sheet`。
 
-## 设计原则
+**旧的 `科目余额表_sample.csv` 本身存在期初/发生/期末不一致和试算问题。** 保留它作为异常检出用例，不再宣称可直接生成平衡三表；完整工作流使用 `month_close/` 内新建的独立平衡样例。各独立计算器样例也不默认属于同一家企业同一套账。
 
-1. **假设显式化**——WACC、退税率、加计抵减比例等参数必须写明来源，无依据不出数。
-2. **不做合规背书**——税务与会计政策只给测算、风险等级和复核建议。
-3. **勾稽优先**——报表不平先修平，再谈分析。
+## Excel 底稿
 
-## 样例数据
+具备 `@oai/artifact-tool` 的 Node 环境可执行：
 
-`assets/samples/` 全部为虚构数据，仅用于跑通流程：
+```powershell
+node scripts/export_workbook.mjs outputs/my-month-close outputs/my-month-close.xlsx
+```
 
-| 文件 | 内容 | 配套脚本 |
-|---|---|---|
-| `科目余额表_sample.csv` | 42 个科目，资产 12000 万 = 负债 6800 万 + 权益 5200 万 | 报表编制 |
-| `银行流水_sample.csv` | 10 笔收支 | 做凭证 |
-| `进销项_sample.csv` | 销项 5 张（含出口 0% 与作废）、进项 6 张（含不得抵扣） | 增值税管理 |
-| `预算vs实际_sample.csv` | 3 个产品 + 3 项成本 + 费用 | 预算分析 |
-| `fin_data_sample.json` | 两期完整三表关键科目 | `fin_ratios.py` |
-| `zscore_eva_sample.json` | Z-Score 与 EVA 入参（含 CAPM 六参数） | `zscore_eva.py` |
-| `variance_input_sample.json` | 量价结构分解入参 | `variance_decompose.py` |
-| `reconcile_input_sample.json` | 勾稽校验入参 | `reconcile_check.py` |
-| `tax_input_sample.json` | 增值税/附加/免抵退/加计/企税入参 | `tax_calc.py` |
+可用 FIN_TAX_NODE_MODULES 指定模块目录。工作簿包含五页、可重算公式、来源行、独立检查及最终复核输入。导出器会验证输入变动确实影响现金流、缺少证据时复核状态不完成，并渲染各页。Python流程不依赖Excel导出器。
 
-输出模板在 `assets/templates/`：财务分析报告、预算差异分析、审计发现报告、月结检查表、凭证导入表、汇算清缴调整表。
+## 安装到 Agent
 
-## 自测
+将整个目录复制到宿主支持的skills目录，保留相对路径。DSH可使用 `~/.dsh/skills/business-fin-tax/`；各宿主安装位置和技能发现方式不同。
 
-见 `SELFTEST.md`。五个脚本已在 Python 3.13 下真实执行：`py_compile` 全部通过，`--example` 与 `assets/samples/` 样例数据端到端运行均 `exit 0`，`reconcile_check.py` 九项勾稽 9/9 通过、`tax_calc.py` 应纳税所得额 7,998,000 与手算一致。
+本包保留既有DSH frontmatter扩展字段（slug/displayName/version/summary）。Codex标准技能校验器不接受这些顶层字段；若发布至仅接受Codex字段的宿主，应将扩展字段移至metadata或制作适配副本，不修改共享包的宿主约定。
 
-## 版本
+## 验证
 
-0.1.0 · 首版：八大子技能 + 6 份知识底座 + 5 个脚本 + 9 份样例 + 6 份模板。税率与限额为机制说明，实务须核对当期文件。
+```powershell
+python -B -m unittest discover -s tests -v
+```
 
-## 许可
+测试覆盖已发现的边界缺陷、原脚本JSON/Markdown、政策拒绝放行、导入和模板、月结正向流程、错误企业/缺复核阻断、产物摘要及重复计算。当前实测环境和结果见 [SELFTEST.md](SELFTEST.md)。为保持既有SkillHub导入兼容，仓库不包含隐藏配置文件；可在目标环境运行上述命令，Windows/Linux及Python版本的实际覆盖以SELFTEST记录为准。
 
-Apache License 2.0，见 [LICENSE.md](LICENSE.md)。
+知识页中的税率、门槛及申报形式仍须按所属期完成原文核验。IFRS、合并、优惠资格认定、正式报送包和ERP写入仍需专项处理，不将知识指引表述为已自动实现。
+
+Apache-2.0，见 [LICENSE.md](LICENSE.md)。

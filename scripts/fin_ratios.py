@@ -26,6 +26,7 @@
 import argparse
 import json
 import sys
+from common import cli, dumps, field, money, read_json
 
 # ---------------------------------------------------------------- 工具函数
 
@@ -34,18 +35,16 @@ def g(d, key):
     """安全取数，非数字返回 None。"""
     if not isinstance(d, dict):
         return None
-    v = d.get(key)
-    if isinstance(v, (int, float)):
-        return float(v)
-    return None
+    v = field(d, key)
+    return None if v is None else float(v)
 
 
 def avg(cur, pri, key):
-    """平均余额 = (期初 + 期末) / 2，缺一用另一。"""
+    """平均余额 = (期初 + 期末) / 2；任一缺失均不替代。"""
     a, b = g(cur, key), g(pri, key)
     if a is not None and b is not None:
         return (a + b) / 2.0
-    return a if a is not None else b
+    return None
 
 
 def div(a, b):
@@ -67,6 +66,13 @@ def compute(data):
     cb, ci, cc = cur.get("balance", {}) or {}, cur.get("income", {}) or {}, cur.get("cashflow", {}) or {}
     pb, pi, pc = pri.get("balance", {}) or {}, pri.get("income", {}) or {}, pri.get("cashflow", {}) or {}
 
+    days = field(data, "period_days", 365, minimum=1, maximum=366)
+    if "period_days" not in data and any(token in str(data.get("period", "")) for token in ("月", "Q", "季度")):
+        raise ValueError("月度/季度分析必须显式提供 period_days")
+    year_days = field(data, "year_days", 365, minimum=360, maximum=366)
+    annualize = data.get("annualize", False)
+    if not isinstance(annualize, bool):
+        raise ValueError("annualize 必须为布尔值")
     revenue = g(ci, "revenue")
     cogs = g(ci, "cogs")
     gross = (revenue - cogs) if (revenue is not None and cogs is not None) else None
@@ -74,12 +80,17 @@ def compute(data):
     pretax = g(ci, "profit_before_tax")
     net = g(ci, "net_profit")
     interest = g(ci, "interest_expense") or 0.0
-    da = (g(ci, "depreciation") or 0.0) + (g(ci, "amortization") or 0.0)
+    dep, amort = g(ci, "depreciation"), g(ci, "amortization")
+    da = dep + amort if dep is not None and amort is not None else None
 
     out = {"company": data.get("company", ""), "period": data.get("period", ""), "unit": data.get("unit", ""),
-           "metrics": {}, "dupont": {}, "warning": []}
+           "metrics": {}, "dupont": {}, "warning": [], "period_days": days, "annualize": annualize, "assumptions": []}
 
     M = out["metrics"]
+    if not pri.get("balance"):
+        out["assumptions"].append("缺少期初余额，平均余额相关指标不计算；未用期末余额代替")
+    if "period_days" not in data:
+        out["assumptions"].append("未传 period_days，按年度365天计算")
 
     # ---- 盈利
     M["gross_margin"] = r(div(gross, revenue), 4)
@@ -95,13 +106,15 @@ def compute(data):
     # ---- 偿债
     ca, cl = g(cb, "current_assets"), g(cb, "current_liabilities")
     M["current_ratio"] = r(div(ca, cl), 2)
-    inv = g(cb, "inventory") or 0.0
-    M["quick_ratio"] = r(div((ca - inv) if ca is not None else None, cl), 2)
+    inv = g(cb, "inventory")
+    M["quick_ratio"] = r(div((ca - inv) if ca is not None and inv is not None else None, cl), 2)
     M["cash_ratio"] = r(div(g(cb, "cash"), cl), 2)
     M["debt_ratio"] = r(div(g(cb, "total_liabilities"), g(cb, "total_assets")), 4)
     M["interest_coverage"] = r(div(ebit, interest), 2) if interest else None
-    ebitda = (ebit or 0.0) + da if ebit is not None else None
-    M["debt_to_ebitda"] = r(div(g(cb, "interest_bearing_debt"), ebitda), 2)
+    ebitda = ebit + da if ebit is not None and da is not None else None
+    # Stock debt must be compared with annual EBITDA, not an unlabelled month's EBITDA.
+    annual_ebitda = ebitda*float(year_days/days) if ebitda is not None and annualize else ebitda
+    M["debt_to_ebitda"] = r(div(g(cb, "interest_bearing_debt"), annual_ebitda), 2) if days >= 360 or annualize else None
 
     # ---- 运营
     ar_avg, inv_avg, ap_avg = avg(cb, pb, "accounts_receivable"), avg(cb, pb, "inventory"), avg(cb, pb, "accounts_payable")
@@ -110,12 +123,13 @@ def compute(data):
     ap_to = div(cogs, ap_avg)
     ta_to = div(revenue, avg(cb, pb, "total_assets"))
     M["ar_turnover"] = r(ar_to, 2)
-    M["dso"] = r(div(365.0, ar_to), 1)
+    M["dso"] = r(div(float(days), ar_to), 1)
     M["inventory_turnover"] = r(inv_to, 2)
-    M["dio"] = r(div(365.0, inv_to), 1)
+    M["dio"] = r(div(float(days), inv_to), 1)
     M["ap_turnover"] = r(ap_to, 2)
-    M["dpo"] = r(div(365.0, ap_to), 1)
+    M["dpo"] = r(div(float(days), ap_to), 1)
     M["asset_turnover"] = r(ta_to, 4)
+    M["ccc"] = None
     if M["dso"] is not None and M["dio"] is not None and M["dpo"] is not None:
         M["ccc"] = r(M["dso"] + M["dio"] - M["dpo"], 1)
 
@@ -124,7 +138,7 @@ def compute(data):
     capex = g(cc, "capex")
     M["ocf_to_net_profit"] = r(div(ocf, net), 2)
     M["cash_to_revenue"] = r(div(g(cc, "cash_from_sales"), revenue), 2)
-    M["free_cash_flow"] = r((ocf - capex), 2) if (ocf is not None and capex is not None) else None
+    M["free_cash_flow"] = money(field(cc, "operating_cash_flow") - field(cc, "capex")) if (ocf is not None and capex is not None) else None
 
     # ---- 杜邦
     eq_avg = avg(cb, pb, "total_equity")
@@ -134,8 +148,8 @@ def compute(data):
         "net_margin": M["net_margin"],
         "asset_turnover": M["asset_turnover"],
         "equity_multiplier": r(div(ta_avg, eq_avg), 4),
-        "check_roe": r((M["net_margin"] or 0) * (M["asset_turnover"] or 0) * (div(ta_avg, eq_avg) or 0), 4)
-        if M["net_margin"] is not None and M["asset_turnover"] is not None and eq_avg else None,
+        "check_roe": r(div(net, revenue) * div(revenue, ta_avg) * div(ta_avg, eq_avg), 4)
+        if M["net_margin"] is not None and M["asset_turnover"] is not None and eq_avg and ta_avg else None,
     }
     if ebit is not None and pretax is not None and net is not None and revenue and ta_avg and eq_avg:
         out["dupont_5"] = {
@@ -146,22 +160,37 @@ def compute(data):
             "equity_multiplier": r(div(ta_avg, eq_avg), 4),
         }
 
+    out["annualized"] = {k: None if M[k] is None else r(M[k]*float(year_days/days), 4)
+                         for k in ("roa", "roe", "asset_turnover", "ar_turnover", "inventory_turnover", "ap_turnover")} if annualize else {}
+    out["unavailable_metrics"] = [k for k, v in M.items() if v is None]
+    if not any((cb, ci, cc, pb)):
+        raise ValueError("输入不足，无法计算任何财务指标")
+    out["status"] = "partial" if out["unavailable_metrics"] else "complete"
+    thresholds = {"current_ratio_min": 1, "interest_coverage_min": 3, "debt_ratio_max": .7,
+                  "ocf_to_net_profit_min": 1, "ccc_max": 120, "gross_margin_min": .15}
+    overrides = data.get("thresholds") or {}
+    for key in overrides:
+        if key not in thresholds:
+            raise ValueError(f"未知预警阈值：{key}")
+        thresholds[key] = float(field(overrides, key, required=True, minimum=0))
+    out["thresholds"] = thresholds
+    out["threshold_basis"] = data.get("threshold_basis") or "经验阈值，仅作线索；须结合行业与业务周期复核"
     # ---- 预警
     W = out["warning"]
-    if M["current_ratio"] is not None and M["current_ratio"] < 1:
-        W.append("流动比率 < 1，短期偿付存在压力")
-    if M["interest_coverage"] is not None and M["interest_coverage"] < 3:
-        W.append("利息保障倍数 < 3，付息能力偏紧")
-    if M["debt_ratio"] is not None and M["debt_ratio"] > 0.7:
-        W.append("资产负债率 > 70%，杠杆偏高")
-    if M["ocf_to_net_profit"] is not None and M["ocf_to_net_profit"] < 1:
-        W.append("净现比 < 1，利润含金量不足")
-    if M["ccc"] is not None and M["ccc"] > 120:
-        W.append("现金转换周期 > 120 天，营运资金占用高")
+    if M["current_ratio"] is not None and M["current_ratio"] < thresholds["current_ratio_min"]:
+        W.append("流动比率低于已选阈值，需复核短期偿付")
+    if M["interest_coverage"] is not None and M["interest_coverage"] < thresholds["interest_coverage_min"]:
+        W.append("利息保障倍数低于已选阈值，需复核付息安排")
+    if M["debt_ratio"] is not None and M["debt_ratio"] > thresholds["debt_ratio_max"]:
+        W.append("资产负债率高于已选阈值，需结合行业评估杠杆")
+    if M["ocf_to_net_profit"] is not None and net is not None and net > 0 and M["ocf_to_net_profit"] < thresholds["ocf_to_net_profit_min"]:
+        W.append("正利润下净现比低于已选阈值，需核对营运资金和非现金损益")
+    if M["ccc"] is not None and M["ccc"] > thresholds["ccc_max"]:
+        W.append("现金转换周期高于已选阈值，需分析营运资金占用")
     if M["free_cash_flow"] is not None and M["free_cash_flow"] < 0:
-        W.append("自由现金流为负，依赖外部融资")
-    if M["gross_margin"] is not None and M["gross_margin"] < 0.15:
-        W.append("毛利率 < 15%，需核实行业特性或成本管控")
+        W.append("自由现金流为负，需结合期初现金与投资周期评估资金需求")
+    if M["gross_margin"] is not None and M["gross_margin"] < thresholds["gross_margin_min"]:
+        W.append("毛利率低于已选阈值，需核实行业特性与成本")
     return out
 
 
@@ -193,8 +222,14 @@ def to_markdown(res):
                   "ROE = 净利率 × 总资产周转率 × 权益乘数 = "
                   f"{d.get('net_margin')} × {d.get('asset_turnover')} × {d.get('equity_multiplier')}"
                   f" = {d.get('check_roe')}", ""]
+    lines += ["", "预警依据：" + res.get("threshold_basis", ""), "```json", dumps(res.get("thresholds", {})), "```"]
     if res.get("warning"):
         lines += ["## 预警", ""] + [f"- {w}" for w in res["warning"]]
+    lines += ["", "## 口径与缺项", "", f"期间天数：{res['period_days']}；年化：{res['annualize']}"]
+    lines += [f"- {w}" for w in res.get("assumptions", [])]
+    lines += [f"- 无法计算：{', '.join(res.get('unavailable_metrics', []))}"]
+    if res.get("annualized"):
+        lines += ["", "## 年化指标", "", "```json", dumps(res["annualized"]), "```"]
     return "\n".join(lines)
 
 
@@ -235,15 +270,14 @@ def main():
     a = ap.parse_args()
 
     if a.example:
-        print(json.dumps(EXAMPLE, ensure_ascii=False, indent=2))
+        print(dumps(EXAMPLE))
         return 0
     if not a.input:
         ap.print_help()
         return 2
-    with open(a.input, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    data = read_json(a.input)
     res = compute(data)
-    text = to_markdown(res) if a.md else json.dumps(res, ensure_ascii=False, indent=2)
+    text = to_markdown(res) if a.md else dumps(res)
     if a.output:
         with open(a.output, "w", encoding="utf-8") as f:
             f.write(text)
@@ -254,4 +288,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(cli(main))
